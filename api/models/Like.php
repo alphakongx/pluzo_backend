@@ -139,18 +139,20 @@ class Like extends \yii\db\ActiveRecord
         if(!$request->post('gender')){
             throw new \yii\web\HttpException('500','gender cannot be blank.'); 
         }
+
         if(!$request->post('age_from')){
-            throw new \yii\web\HttpException('500','age_from cannot be blank.'); 
+            $age_from = 18; 
+        } else {
+            $age_from = $request->post('age_from');
         }
         if(!$request->post('age_to')){
-            throw new \yii\web\HttpException('500','age_to cannot be blank.'); 
+            $age_to = 25;
+        } else {
+            $age_to = $request->post('age_to');
         }
         $lat = $request->post('latitude');
         $lon = $request->post('longitude');
         $gender = $request->post('gender');
-        $age_from = $request->post('age_from');
-        $age_to = $request->post('age_to');
-
         $id = \Yii::$app->user->id;
         $connection = Yii::$app->getDb();
         $command = $connection->createCommand("SELECT *, YEAR(CURRENT_TIMESTAMP)-FROM_UNIXTIME(`birthday`, '%Y') AS `age`, ".DistanceHelper::distance($lat, $lon)." AS `distance` FROM user WHERE `gender`=".$gender." HAVING `distance` < 100 AND `age`>=".$age_from." AND `age`<=".$age_to);      

@@ -103,6 +103,10 @@ class Chat extends \yii\db\ActiveRecord
                 $party2->save();
             }
         } else {
+            $chat_exist = Chat::find()->where(['id'=>$chat_id])->one();
+            if(!$chat_exist){
+                throw new \yii\web\HttpException('500','You are trying to send message to chat_id '.$chat_id.' but chat with this ID not exist');
+            }
             $checkParty1 = Party::find()->where(['chat_id'=>$chat_id, 'user_id'=>\Yii::$app->user->id])->one();
             if (!$checkParty1) {
                 $party1 = new Party();

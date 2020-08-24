@@ -71,7 +71,12 @@ class SearchUserPpl extends ActiveRecord
             'premium'=>'premium',
             'bio'=>'bio',
             'images'=>'images',
-            'friend'=>'friend',
+            'friends'=>function(){ 
+                return User::friendCount($this->id);
+            },
+            'badges'=>function(){ 
+                return Badge::getBadge($this->id);
+            },
         ];
     }
 
@@ -95,8 +100,8 @@ class SearchUserPpl extends ActiveRecord
     }
     public function getImages()
     {   
-        return $this->hasMany(Images::className(), ['user_id' => 'id']);        
+        return $this->hasMany(Images::className(), ['user_id' => 'id'])->
+        orderBy(['sort' => SORT_ASC]);       
     }
-
    
 }   

@@ -70,7 +70,13 @@ class SearchUser extends ActiveRecord
             'last_activity'=>'last_activity',
             'premium'=>'premium',
             'bio'=>'bio',
-            'images'=>'images'
+            'images'=>'images',
+            'friends'=>function(){ 
+                return User::friendCount($this->id);
+            },
+            'badges'=>function(){ 
+                return Badge::getBadge($this->id);
+            },
         ];
     }
 
@@ -94,9 +100,11 @@ class SearchUser extends ActiveRecord
          ->all();
         
     }
+
     public function getImages()
     {   
-        return $this->hasMany(Images::className(), ['user_id' => 'id']);        
+        return $this->hasMany(Images::className(), ['user_id' => 'id'])->
+        orderBy(['sort' => SORT_ASC]);       
     }
 
    
