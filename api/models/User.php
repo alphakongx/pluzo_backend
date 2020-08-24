@@ -77,10 +77,26 @@ class User extends ActiveRecord
             'last_activity'=>'last_activity',
             'premium'=>'premium',
             'bio'=>'bio',
-            'images'=>'images'
+            'images'=>'images',
+            'friends'=>function(){ 
+                return User::friendCount($this->id);
+            },
+            'badges'=>function(){ 
+                return Badge::getBadge($this->id);
+            },
         ];
     }
     
+    public function friendCount($id){
+        $connection = Yii::$app->getDb();
+        $command = $connection->createCommand("SELECT COUNT(*) as count  FROM `friend` l1 
+                    INNER JOIN `friend` l2 ON l1.user_source_id = l2.user_target_id AND l2.user_source_id = l1.user_target_id 
+                    LEFT JOIN `client` ON `client`.`id` = l2.user_source_id
+                    WHERE l1.user_source_id = ".$id);
+        $result = $command->queryAll();
+        return $result[0]['count'];
+    }
+
     public function savePhoto($image)
     {   
         $images = Images::find()->where(['user_id'=>\Yii::$app->user->id])->orderBy(['sort' => SORT_DESC])->one();
@@ -117,11 +133,18 @@ class User extends ActiveRecord
     
     public function deleteAccount()
     {   
+
         $id = \Yii::$app->user->id;
         \Yii::$app
             ->db
             ->createCommand()
             ->delete('client', ['id' => $id])
+            ->execute();
+
+        \Yii::$app
+            ->db
+            ->createCommand()
+            ->delete('badge', ['user_id' => $id])
             ->execute();
 
         \Yii::$app
@@ -375,24 +398,9 @@ class User extends ActiveRecord
         ];
 
         $message = json_encode($messageData); 
-
-
         $client->send($message);
-
-        //echo $client->receive();
-
         $client->close();
 
-
-        /*$localsocket = 'tcp://3.134.208.235:27900';
-        $messageData = [
-            'action'=>$action,
-            'user'=>$user,
-            'data'=>$data
-        ];
-        $message = json_encode($messageData); 
-        $instance = stream_socket_client($localsocket);
-        fwrite($instance, json_encode(['user' => $user, 'message' => $message])  . "\n");*/
     }
 }   
 

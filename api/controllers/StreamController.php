@@ -51,6 +51,22 @@ class StreamController extends Controller
         $stream->category = $_POST['category'];
         $stream->name = $_POST['name'];
         if ($stream->save()) {
+            $st = Stream::find()->where(['id'=>$stream->id])->asarray()->one();
+            $connection = Yii::$app->getDb();
+            $command = $connection->createCommand("SELECT `client`.`id` FROM `friend` l1 
+                INNER JOIN `friend` l2 ON l1.user_source_id = l2.user_target_id AND l2.user_source_id = l1.user_target_id 
+                LEFT JOIN `client` ON `client`.`id` = l2.user_source_id
+                WHERE l1.user_source_id = ".\Yii::$app->user->id);
+            $result = $command->queryAll();  
+            $friends = [];
+            foreach ($result as $key => $value) {
+                array_push($friends, $value['id']);
+            }
+            $socket = [
+                'stream'=>$st,
+                'friends'=>$friends
+            ];
+            User::socket(0, $socket, 'Start_stream');
             return $stream;
         } else {
             throw new \yii\web\HttpException('500','Error save stream'); 
@@ -61,13 +77,14 @@ class StreamController extends Controller
         if(!$_POST['channel_id']){
             throw new \yii\web\HttpException('500','channel_id cannot be blank.'); 
         }
-        $stream = Stream::find()->where(['channel'=>$_POST['channel_id']])->one();
+        $stream = Stream::find()->where(['channel'=>$_POST['channel_id'], 'user_id'=>\Yii::$app->user->id])->one();
         if ($stream) {
             \Yii::$app
             ->db
             ->createCommand()
             ->delete('stream', ['id' => $stream->id])
             ->execute();
+            User::socket(0, $stream->id, 'Stop_stream');
             return 'Stream deleted!';
         } else {
             throw new \yii\web\HttpException('500','Stream '.$_POST['channel_id'].' not exist');
@@ -76,6 +93,10 @@ class StreamController extends Controller
 
     public function actionStreamListApi() {
         return Stream::getChannelList();
+    }
+
+    public function actionStreamList() {
+        return Stream::getStream();
     }
 
     public function actionStreamUserListApi() {

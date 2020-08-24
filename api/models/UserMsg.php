@@ -70,7 +70,13 @@ class UserMsg extends ActiveRecord
             'last_activity'=>'last_activity',
             'premium'=>'premium',
             'bio'=>'bio',
-            'images'=>'images'
+            'images'=>'images',
+            'friends'=>function(){ 
+                return User::friendCount($this->id);
+            },
+            'badges'=>function(){ 
+                return Badge::getBadge($this->id);
+            },
         ];
     }
 

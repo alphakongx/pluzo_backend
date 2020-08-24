@@ -11,10 +11,10 @@ use api\models\Images;
 use api\models\Friend;
 use api\models\UserMsg;
 use api\models\Chat;
+use api\models\Badge;
 use common\models\Token;
 use yii\filters\auth\HttpBearerAuth;
 use yii\helpers\Url;
-
 
 class SiteController extends Controller
 {   
@@ -137,6 +137,7 @@ class SiteController extends Controller
         if ($user) {
             $digits = 10;
             $user->reset_pass_code = rand(pow(10, $digits-1), pow(10, $digits)-1);
+            $user->status = User::STATUS_ACTIVE;
             if ($user->save()) {
                 return ['pass_code'=> $user->reset_pass_code];
             }
@@ -280,6 +281,7 @@ class SiteController extends Controller
         $user = User::find()->where(['phone'=>str_replace(' ', '', $_POST['phone']), 'login_sms_code'=>$_POST['code']])->one();
         if ($user) {
             $user->login_sms_code = '';
+            $user->status = User::STATUS_ACTIVE;
             $token = new Token();
             $token->user_id = $user->id;
             $token->generateToken(time() + 3600 * 24 * 365);
@@ -323,6 +325,25 @@ class SiteController extends Controller
         if (isset($_POST['longitude'])) { $user->longitude = $_POST['longitude']; }
         if (isset($_POST['phone'])) { $user->phone = str_replace(' ', '', $_POST['phone']); }
         if (isset($_POST['bio'])) { $user->bio = $_POST['bio']; }
+        if (count($_POST['badges']) > 0 ) {
+            foreach ($_POST['badges'] as $key => $value) {
+                $badge = Badge::find()->where(['badge_id'=>$value, 'user_id'=>\Yii::$app->user->id])->one();
+                if($badge){
+                } else {
+                    $badge = new Badge();
+                    $badge->user_id = \Yii::$app->user->id;
+                    $badge->badge_id = $value;
+                    $badge->save();
+                }
+            }
+        }
+        if (isset($_POST['remove_badges']) AND $_POST['remove_badges'] == 1) {
+            \Yii::$app
+            ->db
+            ->createCommand()
+            ->delete('badge', ['user_id' => \Yii::$app->user->id])
+            ->execute();
+        }
         if (isset($_POST['premium'])) { $user->premium = $_POST['premium']; }
         if (isset($_POST['gender'])) { $user->gender = $_POST['gender']; }
         if (isset($_POST['birthday'])) { $user->birthday = $_POST['birthday']; }
@@ -398,6 +419,20 @@ class SiteController extends Controller
     public function actionSearchUser() {
         $request = Yii::$app->request;
         return User::searchUser($request);
+    }
+
+    public function actionAddBadge() {
+        $request = Yii::$app->request;
+        return Badge::addfupdBadge($request);
+    }
+
+    public function actionGetBadge() {
+        return Badge::getBadge();
+    }
+
+    public function actionDeteleBadge() {
+        $request = Yii::$app->request;
+        return Badge::deleteBadge($request);
     }
 
 }

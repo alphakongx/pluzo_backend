@@ -44,7 +44,32 @@ class Friend extends \yii\db\ActiveRecord
             LEFT JOIN `client` ON `client`.`id` = l2.user_source_id
             WHERE l1.user_source_id = ".\Yii::$app->user->id." AND `client`.`username` Like '%".$request."%'");
         $result = $command->queryAll();
-        return $result;
+        $friend = [];
+        foreach ($result as $key => $value) {
+            $images = $command = $connection->createCommand("SELECT `images`.`id`, `images`.`path`  FROM `images` WHERE `user_id`=".$value['id']." ORDER BY  `sort` ASC");
+            $result_images = $command->queryAll();
+            $ar = [
+                'id'=>$value['id'],
+                'username'=>$value['username'],
+                'phone'=>$value['phone'],
+                'image'=>$value['image'],
+                'gender'=>$value['gender'],
+                'birthday'=>$value['birthday'],
+                'status'=>$value['status'],
+                'first_name'=>$value['first_name'],
+                'last_name'=>$value['last_name'],
+                'latitude'=>$value['latitude'],
+                'longitude'=>$value['longitude'],
+                'address'=>$value['address'],
+                'last_activity'=>$value['last_activity'],
+                'premium'=>$value['premium'],
+                'images'=>$result_images,
+                'friends'=>User::friendCount($value['id']),
+                'badges'=>Badge::getBadge($value['id']),
+            ];
+            array_push($friend, $ar);
+        }
+        return $friend;
     }
 
     
@@ -145,7 +170,7 @@ class Friend extends \yii\db\ActiveRecord
         $result = $command->queryAll();
         $friend = [];
         foreach ($result as $key => $value) {
-            $images = $command = $connection->createCommand("SELECT `images`.`id`, `images`.`path`  FROM `images` WHERE `user_id`=".$value['id']);
+            $images = $command = $connection->createCommand("SELECT `images`.`id`, `images`.`path`  FROM `images` WHERE `user_id`=".$value['id']." ORDER BY  `sort` ASC");
             $result_images = $command->queryAll();
             $ar = [
                 'id'=>$value['id'],
@@ -163,6 +188,8 @@ class Friend extends \yii\db\ActiveRecord
                 'last_activity'=>$value['last_activity'],
                 'premium'=>$value['premium'],
                 'images'=>$result_images,
+                'friends'=>User::friendCount($value['id']),
+                'badges'=>Badge::getBadge($value['id']),
             ];
             array_push($friend, $ar);
         }
