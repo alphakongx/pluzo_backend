@@ -122,6 +122,8 @@ return [
                 'friend-requests-my' => 'friend/friend-requests-my',
                 'friend-requests-to-me' => 'friend/friend-requests-to-me',
                 'add-friend-username' => 'friend/add-friend-username',
+                'friend-remove' => 'friend/friend-remove',
+                'is-friend' => 'friend/is-friend',
                 'stream-start' => 'stream/stream-start',
                 'stream-stop' => 'stream/stream-stop',
                 'stream-users' => 'stream/stream-users',
@@ -131,6 +133,20 @@ return [
                 'stream-list-api' => 'stream/stream-list-api',
                 'stream-user-list-api' => 'stream/stream-user-list-api',
                 'stream-invite' => 'stream/stream-invite',
+                'stream-ask-join' => 'stream/stream-ask-join',
+                'stream-accept-join' => 'stream/stream-accept-join',
+                'stream-refused-join' => 'stream/stream-refused-join',
+                'stream-disconnect-broad' => 'stream/stream-disconnect-broad',
+                'stream-disconnect-broad-by-user' => 'stream/stream-disconnect-broad-by-user',
+                //user send ask to join as broad
+                'stream-user-ask-join' => 'stream/stream-user-ask-join',
+                //host accept to join
+                'stream-user-accept-join' => 'stream/stream-user-accept-join',
+                //host refused to join
+                'stream-user-refused-join' => 'stream/stream-user-refused-join',
+                //user cancel ask to join
+                'stream-user-cancel-ask' => 'stream/stream-user-cancel-ask',
+                
             ],
         ],
     ],
