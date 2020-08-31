@@ -3,7 +3,8 @@
 namespace api\models;
 
 use Yii;
-
+use api\models\UserMsg;
+use yii\helpers\ArrayHelper;
 /**
  * This is the model class for table "stream".
  *
@@ -76,6 +77,37 @@ class Stream extends \yii\db\ActiveRecord
         }
         return false;
         //return $data;
+    }
+
+    public static function userForApi($id){
+        $user = UserMsg::find()->where(['id'=>$id])->one();
+            $user = ArrayHelper::toArray($user, [
+                'api\models\UserMsg' => [
+                    '_id' => 'id',
+                    'username',    
+                    'first_name',
+                    'last_name',  
+                    'phone',
+                    'status',
+                    'gender',
+                    'image',
+                    'birthday',
+                    'latitude',
+                    'longitude',
+                    'address',
+                    'last_activity',
+                    'premium',
+                    'bio',
+                    'images',
+                    'friends'=>function(){ 
+                        return User::friendCount(\Yii::$app->user->id);
+                    },
+                    'badges'=>function(){ 
+                        return Badge::getBadge(\Yii::$app->user->id);
+                    },
+                ],
+            ]);    
+        return $user;
     }
 
     public static function getUserChannelList($channel){

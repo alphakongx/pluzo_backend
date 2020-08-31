@@ -33,6 +33,14 @@ class StreamUser extends \yii\db\ActiveRecord
         ];
     }
 
+    public function checkUserInStream($user_id, $channel)
+    {   
+        $check = StreamUser::find()->where(['user_id'=>$user_id,'channel'=>$channel,])->one();
+        if (!$check) {
+            throw new \yii\web\HttpException('500','User not joined to this channel');
+        }
+    }
+
     /**
      * {@inheritdoc}
      */

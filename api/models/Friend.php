@@ -72,6 +72,55 @@ class Friend extends \yii\db\ActiveRecord
         return $friend;
     }
 
+
+    public function friendRemove($request)
+    {   
+        $user_target_id = (int)$request->post('user_target_id');
+        if(!$user_target_id){
+            throw new \yii\web\HttpException('500','user_target_id cannot be blank.'); 
+        }
+            \Yii::$app
+            ->db
+            ->createCommand()
+            ->delete('friend', ['user_source_id' => \Yii::$app->user->id, 'user_target_id' => $user_target_id])
+            ->execute();
+            \Yii::$app
+            ->db
+            ->createCommand()
+            ->delete('friend', ['user_source_id' => $user_target_id, 'user_target_id' => \Yii::$app->user->id])
+            ->execute();
+            return 'You have successfully removed the user from friends';
+    }   
+
+    public function isFriend($request)
+    {   
+        $user_target_id = (int)$request->post('user_target_id');
+        if(!$user_target_id){
+            throw new \yii\web\HttpException('500','user_target_id cannot be blank.'); 
+        }
+
+        $you_request_to_user = Friend::find()->where(['user_source_id'=>\Yii::$app->user->id, 'user_target_id'=>$user_target_id])->one();
+        $user_request_to_you = Friend::find()->where(['user_target_id'=>\Yii::$app->user->id, 'user_source_id'=>$user_target_id])->one();
+        $friend = 0;
+        $hint = '';
+        if(!$user_request_to_you->id AND !$you_request_to_user->id){
+            $friend = 1;
+            $hint = 'No request from user, no request from you';
+        }
+        if($user_request_to_you->id AND !$you_request_to_user->id){
+            $friend = 2;
+            $hint = 'Exist user request to you, no request from you';
+        }
+        if($you_request_to_user->id AND !$user_request_to_you->id){
+            $friend = 3;
+            $hint = 'No request from user, exist request from you';
+        }
+        if($you_request_to_user->id AND $user_request_to_you->id){
+            $friend = 4;
+            $hint = 'Cross request = friends';
+        }
+        return ['friend' => $friend, 'hint'=>$hint];
+    }
     
     public function friendRequestsReject($request)
     { 

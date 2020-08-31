@@ -98,7 +98,6 @@ class SearchUser extends ActiveRecord
         ->andWhere(['<>','id', \Yii::$app->user->id])
         ->andWhere(['not in', 'id', $ar])
          ->all();
-        
     }
 
     public function getImages()

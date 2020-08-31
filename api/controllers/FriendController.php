@@ -52,4 +52,15 @@ class FriendController extends Controller
         $request = Yii::$app->request;
         return Friend::addFriendUsername($request);
     }
+
+    public function actionFriendRemove() {
+        $request = Yii::$app->request;
+        return Friend::friendRemove($request);
+    }
+    
+    public function actionIsFriend() {
+        $request = Yii::$app->request;
+        return Friend::isFriend($request);
+    }
+
 }
