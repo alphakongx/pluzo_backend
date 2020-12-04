@@ -4,6 +4,7 @@ namespace api\models;
 
 use Yii;
 use api\models\User;
+use api\models\Stream;
 /**
  * This is the model class for table "message".
  *
@@ -16,7 +17,11 @@ use api\models\User;
  * @property string|null $created_at
  */
 class Message extends \yii\db\ActiveRecord
-{
+{   
+    const __MESSAGE_ = 'message';
+    const __INVITE_ = 'invite';
+    const __CLOSE_ = 'close';
+    
     /**
      * {@inheritdoc}
      */
@@ -44,9 +49,34 @@ class Message extends \yii\db\ActiveRecord
             'chat_id' => 'chat_id',   
             'user' => 'user_info', 
             'status' => 'status',
-            'text' => 'text',  
+            'text' => function(){
+                if ($this->type == 'invite' OR $this->type == 'close') {
+                    return NULL;
+                } else {
+                    return $this->text;
+                }
+            },  
             'image' => 'image',
             'createdAt' => 'created_at',
+            'type' => 'type',  
+            'channel_id' => 'channel_id', 
+            'stream_info' => function(){
+                if ($this->type == 'invite') {
+                    if ($this->channel_id) {
+                        return Stream::find()->where(['channel'=>$this->channel_id])->one();
+                    }
+                } elseif($this->type == 'close') {
+                    return ['name'=>$this->text];
+                } else {
+                    return NULL;
+                }
+            },
+            'message_info'=>function(){ 
+                return [
+                    'sent'=>1,
+                    'received'=>$this->status,
+                ];
+            },
         ];
     }
 
@@ -69,7 +99,10 @@ class Message extends \yii\db\ActiveRecord
     
 
     public function getUser_info()
-    {
+    {   
+        if ($this->user_id == 0) {
+            return 0;
+        }
         return UserMsg::find()->where(['id'=>$this->user_id])->one();
     }
 

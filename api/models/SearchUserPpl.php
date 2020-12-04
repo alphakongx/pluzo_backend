@@ -8,7 +8,7 @@ use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveRecord;
 use yii\web\IdentityInterface;
 use common\models\Token;
-
+use api\models\Like;
 
 class SearchUserPpl extends ActiveRecord
 {
@@ -67,8 +67,12 @@ class SearchUserPpl extends ActiveRecord
             'latitude'=>'latitude',
             'longitude'=>'longitude',
             'address'=>'address',
+            'city'=>'city',
+            'state'=>'state',
             'last_activity'=>'last_activity',
-            'premium'=>'premium',
+            'premium'=>function(){ 
+                return User::checkPremium($this->id);
+            },
             'bio'=>'bio',
             'images'=>'images',
             'friends'=>function(){ 
@@ -77,6 +81,10 @@ class SearchUserPpl extends ActiveRecord
             'badges'=>function(){ 
                 return Badge::getBadge($this->id);
             },
+            'first_login',
+            /*'likes'=>function(){ 
+                return Like::getLike($this->id);
+            },*/
         ];
     }
 

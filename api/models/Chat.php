@@ -4,10 +4,12 @@ namespace api\models;
 
 use Yii;
 use api\models\Chat;
+use api\models\Stream;
 use api\models\Party;
 use api\models\Message;
 use api\models\UserMsg;
 use api\models\ChatMessage;
+use api\models\MessageHide;
 use yii\helpers\ArrayHelper;
 /**
  * This is the model class for table "chat".
@@ -37,20 +39,50 @@ class Chat extends \yii\db\ActiveRecord
         ];
     }
 
-    public static function getChatUser($request)
+    
+    public static function openChat($request)
+    {
+        $chat_id = $request->post('chat_id');
+        if(!$chat_id){
+            throw new \yii\web\HttpException('500','chat_id cannot be blank.'); 
+        }
+        $party = Party::find()->where(['chat_id'=>$chat_id])->andWhere(['<>','user_id', \Yii::$app->user->id])->one();
+
+        $socket_result = [
+                'user'=>\Yii::$app->user->id,
+                'chat_id'=>$chat_id,
+                'time'=>time(),
+            ];
+
+        User::socket($party->user_id, $socket_result, 'Open_chat');
+        return $socket_result;
+
+    }
+
+    public static function closeChat($request)
+    {
+        $chat_id = $request->post('chat_id');
+        if(!$chat_id){
+            throw new \yii\web\HttpException('500','chat_id cannot be blank.'); 
+        }
+        $party = Party::find()->where(['chat_id'=>$chat_id])->andWhere(['<>','user_id', \Yii::$app->user->id])->one();
+
+        $socket_result = [
+                'user'=>\Yii::$app->user->id,
+                'chat_id'=>$chat_id,
+                'time'=>time(),
+            ];
+        User::socket($party->user_id, $socket_result, 'Close_chat');
+        return $socket_result;
+
+    }
+
+    public static function getChatUser($user_id)
     {   
-        $user_target_id = (int)$request->post('user_target_id');
-        if(!$user_target_id){
-            throw new \yii\web\HttpException('500','user_target_id cannot be blank.'); 
-        }
-        if($user_target_id == \Yii::$app->user->id){
-            throw new \yii\web\HttpException('500','user_target_id = your id.'); 
-        }
-        $id = \Yii::$app->user->id;
         $connection = Yii::$app->getDb();
         $command = $connection->createCommand("
             SELECT * FROM `party` WHERE `party`.`chat_id` IN (SELECT `chat_id` FROM `party` WHERE `party`.`user_id` = ".\Yii::$app->user->id.") 
-            AND `party`.`user_id` = ".$user_target_id);
+            AND `party`.`user_id` = ".$user_id);
         $result = $command->queryAll();
         return [
             'chat_id' => $result[0]['chat_id']
@@ -74,20 +106,102 @@ class Chat extends \yii\db\ActiveRecord
         $array = implode("','",$array);
         $id = \Yii::$app->user->id;
         $connection = Yii::$app->getDb();
-        $command = $connection->createCommand("SELECT ".User::userFields().", `message`.`text`, `message`.`chat_id`, `message`.`created_at` FROM `message`
+        $command = $connection->createCommand("SELECT ".User::userFields().", `message`.`text`, `message`.`type`, `message`.`chat_id`, `message`.`created_at` FROM `message`
             LEFT JOIN `client` ON `client`.`id` = `message`.`user_id`
-            WHERE `message`.`user_id` <> ".\Yii::$app->user->id." AND `message`.`text` Like '%".$request."%' AND `message`.`chat_id` IN ('".$array."')");
+            WHERE `message`.`text` Like '%".$request."%' AND `message`.`chat_id` IN ('".$array."')");
         $result = $command->queryAll();
-        return $result;
+
+        $chat_with_team = self::getChatUser(0);
+        if($chat_with_team['chat_id']){
+            $hideMsg = MessageHide::find()->where(['chat_id'=>$chat_with_team['chat_id'], 'user_id'=>\Yii::$app->user->id])->one();
+            if($hideMsg){
+                $hidetime = $hideMsg->time;
+            } else {
+                $hidetime = 0;
+            }
+        } else {
+            $hidetime = 0;
+        }
+
+        $final = [];
+        $us1 = User::bannedUsers();
+        $us2 = User::whoBannedMe();
+        foreach ($result as $key => $value) {
+
+            //banned users
+            if (in_array($value['id'], $us1)) {
+                continue;
+            }
+            if (in_array($value['id'], $us2)) {
+                continue;
+            }
+            
+            if ($value['id']) {
+                $ar = [
+                    'id' => $value['id'],
+                    'username' => $value['username'],
+                    'phone' => $value['phone'],
+                    'image' => $value['image'],
+                    'gender' => $value['gender'],
+                    'birthday' => $value['birthday'],
+                    'status' => $value['status'],
+                    'first_name' => $value['first_name'],
+                    'last_name' => $value['last_name'],
+                    'latitude' => $value['latitude'],
+                    'longitude' => $value['longitude'],
+                    'address' => $value['address'],
+                    'city' => $value['city'],
+                    'state' => $value['state'],
+                    'last_activity' => $value['last_activity'],
+                    'premium' => $value['premium'],
+                    'first_login' => $value['first_login'],
+                    'text' => $value['text'],
+                    'type' => $value['type'],
+                    'chat_id' => $value['chat_id'],
+                    'created_at' => $value['created_at'],
+                ];
+                array_push($final, $ar);
+            } else {
+                if ($value['created_at'] > $hidetime) {
+                    $ar = [
+                        'id' => 0,
+                        'username' => 'Pluzo Team',
+                        'text' => $value['text'],
+                        'type' => $value['type'],
+                        'chat_id' => $value['chat_id'],
+                        'created_at' => $value['created_at'],
+                    ];
+                    array_push($final, $ar);
+                }
+                
+            }   
+            
+        }
+        return $final;
     }
 
     //create new message
     public static function addMessage($request)
     {   
-        if(!$request->post('send_to')){
+        $send_to = $request->post('send_to');
+        if(!isset($send_to)){
             throw new \yii\web\HttpException('500','send_to cannot be blank.'); 
         }
         $chat_id = (int)$request->post('chat_id');
+
+        if (in_array($send_to, User::bannedUsers())) { 
+            throw new \yii\web\HttpException('500','You cant send message to banned user'); 
+        }
+        if (in_array($send_to, User::whoBannedMe())) {
+            throw new \yii\web\HttpException('500','You cant send message to user who banned you');
+        }
+
+        $chat_id_with_user = self::getChatUser($send_to);
+        if($chat_id_with_user['chat_id']){
+            if ($chat_id != $chat_id_with_user['chat_id']) {
+                $chat_id = $chat_id_with_user['chat_id'];
+            }
+        }
         if (!$chat_id) {
             $chat = new Chat();
             $chat->user_id = \Yii::$app->user->id;
@@ -126,6 +240,7 @@ class Chat extends \yii\db\ActiveRecord
         $message->chat_id = $chat_id;
         $message->user_id = \Yii::$app->user->id;
         $message->status = 0;
+        $message->type = 'message';
         $message->text = $request->post('text');
         $message->created_at = time();
 
@@ -142,6 +257,91 @@ class Chat extends \yii\db\ActiveRecord
         return $result;
     }
 
+    //register msg
+    public static function signupMsg($user_id)
+    {  
+        $chat = new Chat();
+        $chat->user_id = $user_id;
+        if ($chat->save()) {
+            $chat_id = $chat->id;
+            $party1 = new Party();
+            $party1->user_id = $user_id;
+            $party1->chat_id = $chat_id;
+            $party1->save();
+            $party2 = new Party();
+            $party2->user_id = 0;
+            $party2->chat_id = $chat_id;
+            $party2->save();
+
+            $message = new Message();
+            $message->chat_id = $chat_id;
+            $message->user_id = 0;
+            $message->status = 0;
+            $message->type = 'message';
+            $message->text = 'Welcome to Pluzo 🌟
+
+Pluzo is all about meeting new people and making new friends!
+
+Here are some tips to get started:
+- Upload profile pictures to your account
+- Pick out some cool badges to display
+- Join live and talk to new people
+- Swipe to meet new people
+- Be kind and make some new friends!
+
+Make sure you follow our community guidelines and have a good time!
+https://pluzo.com/community-guidelines';
+            $message->created_at = time();
+            $message->save();
+            $result = Chat::getMessagers($message->chat_id, $message->id);
+            User::socket(\Yii::$app->user->id, (array)$result, 'Chat');
+        } 
+    }
+
+    //create new message
+    public static function addStreamMessage($user_id, $channel_id)
+    {   
+        //find chat with users
+        $id = \Yii::$app->user->id;
+        $connection = Yii::$app->getDb();
+        $command = $connection->createCommand("
+            SELECT * FROM `party` WHERE `party`.`chat_id` IN (SELECT `chat_id` FROM `party` WHERE `party`.`user_id` = ".\Yii::$app->user->id.") 
+            AND `party`.`user_id` = ".$user_id);
+        $result = $command->queryAll();
+        if($result[0]['chat_id']){
+            $chat_id = $result[0]['chat_id'];
+        } else {
+            $chat = new Chat();
+            $chat->user_id = \Yii::$app->user->id;
+            if ($chat->save()) {
+                $chat_id = $chat->id;
+                $party1 = new Party();
+                $party1->user_id = \Yii::$app->user->id;
+                $party1->chat_id = $chat_id;
+                $party1->save();
+                $party2 = new Party();
+                $party2->user_id = $user_id;
+                $party2->chat_id = $chat_id;
+                $party2->save();
+            } 
+        }
+        if(!$chat_id){
+            throw new \yii\web\HttpException('500','chat_id cannot be blank.'); 
+        }
+        $message = new Message();
+        $message->chat_id = $chat_id;
+        $message->user_id = \Yii::$app->user->id;
+        $message->status = 0;
+        $message->text = Stream::getStreamName($channel_id);;
+        $message->type = 'invite';
+        $message->channel_id = $channel_id;
+        $message->created_at = time();
+        $message->save();
+        $result = Chat::getMessagers($message->chat_id, $message->id);
+        User::socket($user_id, (array)$result, 'Chat');
+        return $result;
+    }
+
     public static function getMessagers($chat_id, $message_id)
     {   
         $result = Message::find()->where(['id'=>$message_id])->orderby('created_at DESC')->all();
@@ -153,6 +353,7 @@ class Chat extends \yii\db\ActiveRecord
                 'image',
                 'chat_id',
                 'status',
+                'type',
                 'user' => 'user_info',
             ],
         ]);
