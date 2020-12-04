@@ -16,9 +16,9 @@ $ws_worker->onMessage = function($connection, $data) use (&$users) {
 };
 
 
-$ws_worker->onConnect = function($connection) use (&$users, $db)
+$ws_worker->onConnect = function($connection) use (&$users)
 {
-    $connection->onWebSocketConnect = function($connection) use (&$users, $db)
+    $connection->onWebSocketConnect = function($connection) use (&$users)
     {    
         $users[$_GET['user']] = $connection;
         $messageData = [

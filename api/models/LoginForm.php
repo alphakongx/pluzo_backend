@@ -53,7 +53,10 @@ class LoginForm extends Model
         if ($this->validate()) {
             //verify phone
             if ($this->_user->status == 0) {
-                //throw new \yii\web\HttpException('500','Your phone number is not verified'); 
+                throw new \yii\web\HttpException('500','Your phone number is not verified'); 
+            }
+            if ($this->_user->status == 3) {
+                throw new \yii\web\HttpException('500','You are banned'); 
             }
             $token = new Token();
             $token->user_id = $this->getUser()->id;

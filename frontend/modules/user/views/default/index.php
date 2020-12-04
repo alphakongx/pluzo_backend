@@ -15,12 +15,14 @@ $this->title = Yii::t('frontend', 'User Settings')
 
     <?php $form = ActiveForm::begin(); ?>
 
-    <?php echo $form->field($model->getModel('profile'), 'picture')->widget(
+    <?php 
+    /*echo $form->field($model->getModel('profile'), 'picture')->widget(
         Upload::class,
         [
             'url' => ['avatar-upload']
         ]
-    )?>
+    )*/
+    ?>
 
     <div class="row">
         <div class="col">

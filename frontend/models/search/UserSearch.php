@@ -40,7 +40,7 @@ class UserSearch extends Client
      */
     public function search($params)
     {
-        $query = Client::find();
+        $query = Client::find()->with(['badge']);;
 
 
         // add conditions that should always apply here

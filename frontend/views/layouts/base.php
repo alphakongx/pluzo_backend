@@ -66,8 +66,8 @@ $keyStorage = Yii::$app->keyStorage;
         ]); ?>
         <!-- /left navbar links -->
 
-        <!-- right navbar links   '.Html::img(Yii::$app->user->identity->userProfile->getAvatar('/img/anonymous.png'), ['class' => ['img-circle', 'elevation-2', 'bg-white', 'user-image'], 'alt' => 'User image']).'
-                        '.Html::tag('span', Yii::$app->user->identity->publicIdentity, ['class' => ['d-none', 'd-md-inline']]).' -->
+        
+            <!-- right navbar links -->
         <?php echo Nav::widget([
             'options' => ['class' => ['navbar-nav', 'ml-auto']],
             'encodeLabels' => false,
@@ -75,12 +75,13 @@ $keyStorage = Yii::$app->keyStorage;
                 
                 '<li class="nav-item dropdown user-menu">
                     <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
-                     
+                        <img class="img-circle elevation-2 bg-white user-image" src="https://dashboard.pluzo.com/0WLfykrhlA5Xsp1vcNZdx8pt_1xGC555.png" alt="User image">
+                        '.Html::tag('span', Yii::$app->user->identity->publicIdentity, ['class' => ['d-none', 'd-md-inline']]).'
                     </a>
                     <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
                         <!-- User image -->
                         <li class="user-header bg-primary">
-                            '.Html::img(Yii::$app->user->identity->userProfile->getAvatar('/img/anonymous.png'), ['class' => ['img-circle', 'elevation-2', 'bg-white'], 'alt' => 'User image']).'
+                            <img class="img-circle elevation-2 bg-white" src="https://dashboard.pluzo.com/0WLfykrhlA5Xsp1vcNZdx8pt_1xGC555.png" alt="User image">
                             <p>
                                 '.Yii::$app->user->identity->publicIdentity.'
                                 <small>'.Yii::t('backend', 'Member since {0, date, short}', Yii::$app->user->identity->created_at).'</small>
@@ -167,6 +168,27 @@ $keyStorage = Yii::$app->keyStorage;
                             'icon' => FAS::icon('stream', ['class' => ['nav-icon']]),
                             'url' => ['/message/index'],
                             'active' => Yii::$app->controller->id === 'message',
+                            //'visible' => Yii::$app->user->can('administrator'),
+                        ],
+                        [
+                            'label' => Yii::t('backend', 'Payment'),
+                            'icon' => FAS::icon('credit-card', ['class' => ['nav-icon']]),
+                            'url' => ['/payment/index'],
+                            'active' => Yii::$app->controller->id === 'payment',
+                            //'visible' => Yii::$app->user->can('administrator'),
+                        ],
+                        [
+                            'label' => Yii::t('backend', 'Advance'),
+                            'icon' => FAS::icon('arrow-up', ['class' => ['nav-icon']]),
+                            'url' => ['/advance/index'],
+                            'active' => Yii::$app->controller->id === 'advance',
+                            //'visible' => Yii::$app->user->can('administrator'),
+                        ],
+                        [
+                            'label' => Yii::t('backend', 'Report'),
+                            'icon' => FAS::icon('life-ring', ['class' => ['nav-icon']]),
+                            'url' => ['/report/index'],
+                            'active' => Yii::$app->controller->id === 'report',
                             //'visible' => Yii::$app->user->can('administrator'),
                         ],
                         

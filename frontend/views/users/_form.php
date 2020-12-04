@@ -14,22 +14,28 @@ use yii\widgets\ActiveForm;
 
     <?= $form->errorSummary($model) ?>
     
-    <?= $form->field($model, 'username')->textInput(['maxlength' => true]) ?>
+    <?= $form->field($model, 'username')->textInput(['maxlength' => true , 'disabled' => true]) ?>
 
-    <?= $form->field($model, 'status')->textInput()->textInput(['type' => 'number']) ?>
+    <?= $form->field($model, 'status')->dropDownList([
+    '0' => 'Not active','1' => 'Active','3' => 'Banned',
+    ]) ?>
 
-    <?= $form->field($model, 'gender')->textInput() ?>
+    <?= $form->field($model, 'gender')->dropDownList([
+    '1' => 'Male',
+    '2' => 'Female',
+    ]) ?>
 
     <?= $form->field($model, 'phone')->textInput() ?>
 
-    <?= $form->field($model, 'address')->textInput() ?>
 
     <?= $form->field($model, 'first_name')->textInput() ?>
 
     <?= $form->field($model, 'last_name')->textInput() ?>
 
-    <?= $form->field($model, 'birthday')->textInput() ?>
-    
+    <?= $form->field($model, 'address')->textInput()->label("Country") ?>
+    <?= $form->field($model, 'city')->textInput() ?>
+    <?= $form->field($model, 'state')->textInput() ?>
+
 
     <div class="form-group">
         <?= Html::submitButton('Save', ['class' => 'btn btn-success']) ?>

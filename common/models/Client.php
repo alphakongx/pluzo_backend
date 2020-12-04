@@ -10,7 +10,7 @@ use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
 use yii\web\IdentityInterface;
-
+use common\models\Badge;
 /**
  * User model
  *
@@ -32,7 +32,11 @@ use yii\web\IdentityInterface;
  * @property \common\models\UserProfile $userProfile
  */
 class Client extends ActiveRecord implements IdentityInterface
-{
+{   
+    const USER_ACTIVE = 1;
+    const USER_NOT_ACTIVE = 0;
+    const USER_BANNED = 3;
+
     const STATUS_NOT_ACTIVE = 1;
     const STATUS_ACTIVE = 2;
     const STATUS_DELETED = 3;
@@ -72,6 +76,16 @@ class Client extends ActiveRecord implements IdentityInterface
             ->andWhere(['id' => $id])
             ->one();
     }
+
+    public static function banUser($id)
+    {
+        \Yii::$app
+            ->db
+            ->createCommand()
+            ->delete('token', ['user_id' => $id])
+            ->execute();
+    }
+    
 
     /**
      * @return UserQuery
@@ -183,7 +197,7 @@ class Client extends ActiveRecord implements IdentityInterface
         return [
             [['username', 'email'], 'unique'],
             ['status', 'integer'],
-            [['address', 'first_name', 'last_name', 'gender', 'birthday', 'phone', 'status'], 'safe'],
+            [['address', 'city', 'state', 'first_name', 'last_name', 'gender', 'birthday', 'phone', 'status'], 'safe'],
             
             [['username'], 'filter', 'filter' => '\yii\helpers\Html::encode']
         ];
@@ -225,6 +239,12 @@ class Client extends ActiveRecord implements IdentityInterface
     {
         return $this->hasOne(UserProfile::class, ['user_id' => 'id']);
     }
+
+    public function getBadge()
+    {
+        return $this->hasMany(Badge::class, ['user_id' => 'id']);
+    }
+    
 
     /**
      * @inheritdoc

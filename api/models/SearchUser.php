@@ -9,6 +9,8 @@ use yii\db\ActiveRecord;
 use yii\web\IdentityInterface;
 use common\models\Token;
 use api\models\SearchUserPpl;
+use api\models\Like;
+use api\models\User;
 
 class SearchUser extends ActiveRecord
 {
@@ -67,8 +69,12 @@ class SearchUser extends ActiveRecord
             'latitude'=>'latitude',
             'longitude'=>'longitude',
             'address'=>'address',
+            'city'=>'city',
+            'state'=>'state',
             'last_activity'=>'last_activity',
-            'premium'=>'premium',
+            'premium'=>function(){ 
+                return User::checkPremium($this->id);
+            },
             'bio'=>'bio',
             'images'=>'images',
             'friends'=>function(){ 
@@ -77,6 +83,10 @@ class SearchUser extends ActiveRecord
             'badges'=>function(){ 
                 return Badge::getBadge($this->id);
             },
+            'first_login',
+            /*'likes'=>function(){ 
+                return Like::getLike($this->id);
+            },*/
         ];
     }
 
@@ -96,6 +106,8 @@ class SearchUser extends ActiveRecord
         ->orwhere(['like', 'first_name', $request])
         ->orwhere(['like', 'last_name', $request])
         ->andWhere(['<>','id', \Yii::$app->user->id])
+        ->andWhere(['not in', 'id', User::bannedUsers()])
+        ->andWhere(['not in', 'id', User::whoBannedMe()])
         ->andWhere(['not in', 'id', $ar])
          ->all();
     }

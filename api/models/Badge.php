@@ -63,7 +63,7 @@ class Badge extends \yii\db\ActiveRecord
         return $badge;
     }
 
-    public function getBadge($id)
+    public static function getBadge($id)
     { 
         $badge = Badge::find()->where(['user_id'=>$id])->all();
         $ar = [];
