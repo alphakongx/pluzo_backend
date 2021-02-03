@@ -10,6 +10,8 @@ use yii\filters\auth\HttpBearerAuth;
 use yii\helpers\Url;
 use api\models\Like;
 use api\models\Advance;
+use api\models\PremiumUse;
+use api\models\LiveSetting;
 
 class LikeController extends Controller
 {   
@@ -26,6 +28,15 @@ class LikeController extends Controller
         return $behaviors;
     }
 
+    public function actionGetLiveSetting() {
+        return LiveSetting::getLiveSetting();
+    }
+
+    public function actionSetLiveSetting() {
+        $request = Yii::$app->request;
+        return LiveSetting::setLiveSetting($request);
+    }
+
     public function actionGetSwipeSetting() {
         return Like::GetSwipeSetting($request);
     }
@@ -39,12 +50,15 @@ class LikeController extends Controller
         $request = Yii::$app->request;
         $user_target_id = (int)$request->post('user_target_id');
         $is_like = (int)$request->post('is_like');
-        if ($is_like == 2) {
-            if(User::checkPremium(\Yii::$app->user->id)){
-                //pluzo plus
-            } elseif(!Advance::runService(2)){
-                throw new \yii\web\HttpException('500','Need buy more super like'); 
-            }
+
+        if(!$user_target_id){
+            throw new \yii\web\HttpException('500','user_target_id cannot be blank.'); 
+        }
+        if(!isset($is_like)){
+            throw new \yii\web\HttpException('500','is_like cannot be blank.'); 
+        }
+        if($user_target_id == \Yii::$app->user->id){
+             throw new \yii\web\HttpException('500','user_target_id can not be your ID'); 
         }
 
         return

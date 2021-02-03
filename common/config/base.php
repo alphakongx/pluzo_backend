@@ -5,12 +5,24 @@ $config = [
     'extensions' => require(__DIR__ . '/../../vendor/yiisoft/extensions.php'),
     'sourceLanguage' => 'en-US',
     'language' => 'en-US',
-    'bootstrap' => ['log'],
+    'bootstrap' => ['queue', 'log'],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm' => '@vendor/npm-asset',
     ],
     'components' => [
+        'redis' => [
+            'class' => \yii\redis\Connection::class,
+            'hostname' => 'localhost',
+            'port' => 6379,
+            'database' => 0,
+            'retries' => 1,
+        ],
+        'queue' => [
+            'class' => \yii\queue\redis\Queue::class,
+            'redis' => 'redis', // Redis connection component or its config
+            'channel' => 'queue', // Queue channel key
+        ],
         'authManager' => [
             'class' => yii\rbac\DbManager::class,
             'itemTable' => '{{%rbac_auth_item}}',
@@ -156,10 +168,10 @@ $config = [
             require(Yii::getAlias('@storage/config/_urlManager.php'))
         ),
 
-        'queue' => [
-            'class' => \yii\queue\file\Queue::class,
-            'path' => '@common/runtime/queue',
-        ],
+        //'queue' => [
+          //  'class' => \yii\queue\file\Queue::class,
+          //  'path' => '@common/runtime/queue',
+        //],
     ],
     'params' => [
         'adminEmail' => env('ADMIN_EMAIL'),

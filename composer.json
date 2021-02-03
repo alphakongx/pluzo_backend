@@ -28,7 +28,7 @@
     "yiisoft/yii2": "^2.0.13",
     "yiisoft/yii2-swiftmailer": "^2.0.0",
     "yiisoft/yii2-authclient": "^2.0.0",
-    "yiisoft/yii2-bootstrap4": "^2.0",
+    "yiisoft/yii2-bootstrap4": " *",
     "yiisoft/yii2-jui": "^2.0.0",
     "yii2-starter-kit/yii2-file-kit": "^2.1.0",
     "asofter/yii2-imperavi-redactor": ">=0.0.3@dev",
@@ -52,7 +52,13 @@
     "yii2mod/yii2-swagger": "^1.1",
     "rmrevin/yii2-fontawesome": "^3.4",
     "kartik-v/yii2-widgets": "^3.4",
-    "kmergen/yii2-adminlte3": " *"
+    "kmergen/yii2-adminlte3": " *",
+    "textalk/websocket": "^1.3",
+    "aws/aws-sdk-php-resources": "^0.3.0",
+    "yiisoft/yii2-imagine": "^2.2",
+    "twilio/sdk": "^6.10",
+    "yiisoft/yii2-queue": "^2.3",
+    "yiisoft/yii2-redis": "^2.0"
   },
   "require-dev": {
     "yiisoft/yii2-debug": "^2.0.0",
@@ -112,5 +118,7 @@
       "docker-compose exec -T app php tests/bin/yii app/setup --interactive=0",
       "echo 'open a new terminal and run \"docker-compose exec -T app vendor/bin/codecept run\"' && docker-compose exec -T app php -S localhost:8080"
     ]
-  }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
 }

@@ -65,6 +65,9 @@ class UserMsg extends ActiveRecord
             'gender'=>'gender',
             'avatar'=>'image',
             'birthday'=>'birthday',
+            'age'=>function(){ 
+                return User::getAge($this->birthday);
+            },  
             'image'=>'image',
             'latitude'=>'latitude',
             'longitude'=>'longitude',

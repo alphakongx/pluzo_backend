@@ -29,6 +29,9 @@ class UserSwipe extends ActiveRecord
             'gender'=>'gender',
             'image'=>'image',
             'birthday'=>'birthday',
+            'age'=>function(){ 
+                return User::getAge($this->birthday);
+            },  
             'latitude'=>'latitude',
             'longitude'=>'longitude',
             'address'=>'address',

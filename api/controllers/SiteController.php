@@ -17,6 +17,9 @@ use api\models\Stream;
 use api\models\Tempcode;
 use api\models\ClientSetting;
 use api\models\BanUser;
+use api\models\StreamUser;
+use common\models\Analit;
+
 use common\models\Token;
 use yii\filters\auth\HttpBearerAuth;
 use yii\helpers\Url;
@@ -31,20 +34,54 @@ class SiteController extends Controller
 
         $behaviors['authenticator'] = [
             'class' =>  HttpBearerAuth::className(),
-            'except' => ['test', 'login-sms', 'check-number', 'index','check-username', 'sms', 'login', 'signup', 'forgot-sms-send', 'forgot-sms-code', 'new-pass-code', 'verify-sms-send', 'verify-sms-code', 'login-sms-send', 'login-sms-code']
+            'except' => ['test', 'login-sms', 'check-number', 'index','check-username', 'sms', 'login', 'signup', 'forgot-sms-send', 'forgot-sms-code', 'new-pass-code', 'verify-sms-send', 'verify-sms-code', 'login-sms-send', 'login-sms-code', 'agora-user-leave-channel']
         ];
 
         return $behaviors;
     }
 
+    public function actionPageLeave()
+    { 
+        if(!$_POST['page']){
+            throw new \yii\web\HttpException('500','page cannot be blank.'); 
+        }
+        if(!$_POST['leave']){
+            throw new \yii\web\HttpException('500','leave cannot be blank.'); 
+        }
+        $track = new Analit();
+        $track->user_id = \Yii::$app->user->id;
+        $track->time = time();
+        $track->leave = $_POST['leave'];
+        $track->save();
+        return $track;
+    }
+
+    public function actionPageTime()
+    { 
+        if(!$_POST['page']){
+            throw new \yii\web\HttpException('500','page cannot be blank.'); 
+        }
+        if(!$_POST['during']){
+            throw new \yii\web\HttpException('500','during cannot be blank.'); 
+        }
+        $track = new Analit();
+        $track->user_id = \Yii::$app->user->id;
+        $track->time = time();
+        $track->time_start = $_POST['time_start'];
+        $track->time_end = $_POST['time_end'];
+        $track->during = $_POST['during'];
+        $track->page = $_POST['page'];
+        $track->save();
+        return $track;
+    }
 
     public function actionAskQuestion()
     { 
-        if(!$_POST['content']){
-            throw new \yii\web\HttpException('500','content cannot be blank.'); 
-        }
         if(!$_POST['type']){
             throw new \yii\web\HttpException('500','type cannot be blank.'); 
+        }
+        if ($_POST['type'] < 0 OR $_POST['type'] > 4) {
+            throw new \yii\web\HttpException('500','type can be from 1 to 4!'); 
         }
         $type = [
             '1'=>'I have a question',
@@ -396,6 +433,31 @@ class SiteController extends Controller
         throw new \yii\web\HttpException('500','Code for number '.$_POST['phone'].' is incorrect !'); 
     }
 
+    //agora request 
+    public function actionAgoraUserLeaveChannel()
+    {   
+        $data = file_get_contents("php://input");
+        $array = json_decode($data, true);
+
+        if($array['eventType'] == 104 OR $array['eventType'] == 106){
+            $channel_id = $array['payload']['channelName'];
+            $user_id = $array['payload']['uid'];
+
+            StreamUser::deleteUser($user_id, $channel_id);
+            $result = [
+                'user'=>Stream::userForApi($user_id),
+                'stream'=>$channel_id
+            ];
+            User::socket(0, $result, 'Stream_disconnect_user');
+            \Yii::$app
+                ->db
+                ->createCommand()
+                ->delete('stream_user', ['channel' => $channel_id, 'user_id'=>$user_id])
+                ->execute();
+        }
+        return true;
+    }
+
     public function actionDeleteImage()
     {  
         if(!$_POST['image_id']){
@@ -476,7 +538,7 @@ class SiteController extends Controller
     public function actionTest()
     {   
         //$time = date('Y-m-d', time());
-        //return User::Sms('+12098937189', 'test message '.$time);
+        //User::Sms('+12098937189', 'test message ');
         return 'api';
     }
 
@@ -601,9 +663,10 @@ class SiteController extends Controller
             }
         }
         if (isset($_POST['premium'])) { $user->premium = $_POST['premium']; }
-        if (isset($_POST['gender'])) { 
-            if($_POST['gender'] == 'male'){$gender = 1;}
-            if($_POST['gender'] == 'female'){$gender = 2;}
+        if (isset($_POST['gender'])) {
+            if($_POST['gender'] == 'other'){$gender = User::GENDER_OTHER;}
+            if($_POST['gender'] == 'male'){$gender = User::GENDER_MALE;}
+            if($_POST['gender'] == 'female'){$gender = User::GENDER_FEMALE;}
             $user->gender = $gender; 
         }
         if (isset($_POST['birthday'])) { $user->birthday = $_POST['birthday'];
@@ -619,10 +682,14 @@ class SiteController extends Controller
         if (isset($_POST['latitude']) AND isset($_POST['longitude'])) {
             $lat = $_POST['latitude'];
             $long = $_POST['longitude'];
-            $address = User::getAddress($lat, $long);
-            $user->address = $address['country'];;
-            $user->state = $address['state'];
-            $user->city = $address['city'];
+
+            $user_swipe =  Like::getSwipeSetting();
+            if ($user_swipe->current_location == 1) {
+                $address = User::getAddress($lat, $long);
+                $user->address = $address['country'];;
+                $user->state = $address['state'];
+                $user->city = $address['city'];
+            }
         }
 
         ClientSetting::update_setting(Yii::$app->request);
@@ -640,7 +707,10 @@ class SiteController extends Controller
     {   
         $model = new User();
         if( count($_FILES['images']['name']) > 3  ){
-            throw new \yii\web\HttpException('500','You can sen maximum 3 images');
+            throw new \yii\web\HttpException('500','You can send maximum 3 images');
+        }
+        if (!$_POST['password']) {
+            throw new \yii\web\HttpException('500','password can not be blank');
         }
         $model->scenario = 'create';
         $model->auth_key = 'pluzo';
@@ -652,10 +722,14 @@ class SiteController extends Controller
         $model->birthday = $_POST['birthday'];
         Like::checkBirthday($model->birthday);
         if (isset($_POST['gender'])) { 
-            if($_POST['gender'] == 'male'){$gender = 1;}
-            if($_POST['gender'] == 'female'){$gender = 2;}
+            if($_POST['gender'] == 'other'){$gender = User::GENDER_OTHER;}
+            if($_POST['gender'] == 'male'){$gender = User::GENDER_MALE;}
+            if($_POST['gender'] == 'female'){$gender = User::GENDER_FEMALE;}
             $model->gender = $gender; 
+        } else {
+            throw new \yii\web\HttpException('500','Gender is required! male, female, other');
         }
+
         $model->status = User::STATUS_NOT_ACTIVE;
         $model->first_name = $_POST['first_name'];
         $model->last_name = $_POST['last_name'];
@@ -688,10 +762,10 @@ class SiteController extends Controller
 
             //create swipe setting
             if(isset($_POST['swipe_gender'])){
-                if($_POST['swipe_gender'] == 'both'){ $gender = 0;}
-                if($_POST['swipe_gender'] == 'male'){ $gender = 1;}
-                if($_POST['swipe_gender'] == 'female'){ $gender = 2;}
-                if($gender == 0 OR $gender == 1 OR $gender == 2){
+                if($_POST['swipe_gender'] == 'both'){ $gender = User::GENDER_OTHER;}
+                if($_POST['swipe_gender'] == 'male'){ $gender = User::GENDER_MALE;}
+                if($_POST['swipe_gender'] == 'female'){ $gender = User::GENDER_FEMALE;}
+                if($gender == User::GENDER_OTHER OR $gender == User::GENDER_MALE OR $gender == User::GENDER_FEMALE){
                     Like::createSwipeSettingSignup($model->id, $gender, $model->latitude, $model->longitude, $model->birthday);
                 }
             }
@@ -723,10 +797,11 @@ class SiteController extends Controller
         if(!$_POST['reason']){
             throw new \yii\web\HttpException('500','reason cannot be blank.'); 
         }
-        if(!$_POST['msg']){
-            throw new \yii\web\HttpException('500','msg cannot be blank.'); 
+        $msg = '';
+        if (isset($_POST['msg'])) {
+            $msg = $_POST['msg'];
         }
-        return Stream::streamReport(Stream::REPORT_USER, $_POST['user_id'], $_POST['reason'], $_POST['msg'], \Yii::$app->user->id);
+        return Stream::streamReport(Stream::REPORT_USER, $_POST['user_id'], $_POST['reason'], $msg, \Yii::$app->user->id);
     }
 
     public function actionSearchUser() {

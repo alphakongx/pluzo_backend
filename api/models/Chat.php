@@ -10,6 +10,9 @@ use api\models\Message;
 use api\models\UserMsg;
 use api\models\ChatMessage;
 use api\models\MessageHide;
+use api\models\Badge;
+use api\components\PushHelper;
+
 use yii\helpers\ArrayHelper;
 /**
  * This is the model class for table "chat".
@@ -111,6 +114,8 @@ class Chat extends \yii\db\ActiveRecord
             WHERE `message`.`text` Like '%".$request."%' AND `message`.`chat_id` IN ('".$array."')");
         $result = $command->queryAll();
 
+
+
         $chat_with_team = self::getChatUser(0);
         if($chat_with_team['chat_id']){
             $hideMsg = MessageHide::find()->where(['chat_id'=>$chat_with_team['chat_id'], 'user_id'=>\Yii::$app->user->id])->one();
@@ -135,7 +140,25 @@ class Chat extends \yii\db\ActiveRecord
             if (in_array($value['id'], $us2)) {
                 continue;
             }
-            
+
+            $partner_id = Party::find()
+            ->where(['chat_id'=>$value['chat_id']])
+            ->andwhere(['<>', 'user_id', $value['id']])
+            ->one();
+
+            if($partner_id->user_id == 0){
+                $partner_model = [
+                    'id' => 0,
+                    'username' => 'Pluzo Team',
+                    'text' => $value['text'],
+                    'type' => $value['type'],
+                    'chat_id' => $value['chat_id'],
+                    'created_at' => $value['created_at'],
+                    ];
+            } else {
+                $partner_model = Stream::userForApi($partner_id->user_id);
+            }
+
             if ($value['id']) {
                 $ar = [
                     'id' => $value['id'],
@@ -144,6 +167,7 @@ class Chat extends \yii\db\ActiveRecord
                     'image' => $value['image'],
                     'gender' => $value['gender'],
                     'birthday' => $value['birthday'],
+                    'age'=>User::getAge($value['birthday']),
                     'status' => $value['status'],
                     'first_name' => $value['first_name'],
                     'last_name' => $value['last_name'],
@@ -153,12 +177,15 @@ class Chat extends \yii\db\ActiveRecord
                     'city' => $value['city'],
                     'state' => $value['state'],
                     'last_activity' => $value['last_activity'],
-                    'premium' => $value['premium'],
+                    'premium' => User::checkPremium($value['id']),
                     'first_login' => $value['first_login'],
                     'text' => $value['text'],
                     'type' => $value['type'],
                     'chat_id' => $value['chat_id'],
                     'created_at' => $value['created_at'],
+                    'badges'=>Badge::getBadge($value['id']),
+                    'friends'=>User::friendCount($value['id']),
+                    'partner_model' => $partner_model,
                 ];
                 array_push($final, $ar);
             } else {
@@ -170,6 +197,8 @@ class Chat extends \yii\db\ActiveRecord
                         'type' => $value['type'],
                         'chat_id' => $value['chat_id'],
                         'created_at' => $value['created_at'],
+                        'partner_model' => Stream::userForApi(\Yii::$app->user->id),
+
                     ];
                     array_push($final, $ar);
                 }
@@ -195,6 +224,9 @@ class Chat extends \yii\db\ActiveRecord
         if (in_array($send_to, User::whoBannedMe())) {
             throw new \yii\web\HttpException('500','You cant send message to user who banned you');
         }
+
+        $send_push = $request->post('send_push');
+        if (!isset($send_push)) { $send_push = 1; }
 
         $chat_id_with_user = self::getChatUser($send_to);
         if($chat_id_with_user['chat_id']){
@@ -251,7 +283,22 @@ class Chat extends \yii\db\ActiveRecord
             User::s3Upload('chat/', $file_name, $temp_file_location);
             $message->image = env('AWS_S3_PLUZO').'chat/'.$file_name;
         }
+
+        //check read message and send PN
+        $check =  Message::find()->where(['chat_id'=>$chat_id, 'type'=>Message::__MESSAGE_, 'status'=>0, 'user_id'=>\Yii::$app->user->id])->count();
+        if($check == 0 AND $send_push == 1){
+            $send_to = $request->post('send_to');
+            $host = User::find()->where(['id'=>\Yii::$app->user->id])->one();
+            $user = User::find()->where(['id'=>$send_to])->one();
+            $text_message = $host->first_name.' sent you message';
+            $data = array("action" => "chat", 'user_model'=>Stream::userForApi($host), 'chat_id'=>$chat_id); 
+            PushHelper::send_push($user, $text_message, $data);
+        }
+
+
         $message->save();
+
+
         $result = Chat::getMessagers($message->chat_id, $message->id);
         User::socket($request->post('send_to'), (array)$result, 'Chat');
         return $result;

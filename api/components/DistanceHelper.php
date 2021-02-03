@@ -10,6 +10,12 @@ class DistanceHelper
 
     // replate 3959 to 6371 if needed km
     public static function distance($lat, $lon) {
+       return "TRUNCATE( ( 3959 * acos( cos( radians($lat) ) * cos( radians( `client`.`latitude` ) ) 
+       * cos( radians(`client`.`longitude`) - radians($lon)) + sin(radians($lat)) 
+       * sin( radians(`client`.`latitude`)))) , 2)";
+    }
+
+    public static function distance_old($lat, $lon) {
        return "TRUNCATE( ( 3959 * acos( cos( radians($lat) ) * cos( radians( latitude ) ) 
        * cos( radians(longitude) - radians($lon)) + sin(radians($lat)) 
        * sin( radians(latitude)))) , 2)";

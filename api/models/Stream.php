@@ -9,6 +9,8 @@ use api\models\Like;
 use api\models\User;
 use api\models\Friend;
 use api\models\StreamBan;
+use api\models\Advance;
+use api\models\LiveSetting;
 
 /**
  * This is the model class for table "stream".
@@ -74,7 +76,8 @@ class Stream extends \yii\db\ActiveRecord
             array_push($sent_friend, $value['user_target_id']);
         }
 
-        return SearchUserPpl::find()->where(['<>','id', \Yii::$app->user->id])
+        return SearchUserPpl::find()->where(['<>','id', \Yii::$app->user->id,])
+        ->andWhere(['status'=>1])
         ->andWhere(['not in', 'id', $ar])
         ->andWhere(['not in', 'id', $sent_friend])
         ->andWhere(['not in', 'id', User::bannedUsers()])
@@ -114,8 +117,27 @@ class Stream extends \yii\db\ActiveRecord
         if($report->save()){
             return $report;
         } else {
+            print_r($report->errors);
+            die();
             throw new \yii\web\HttpException('500','Error save'); 
         }
+    }
+
+    public static function isLive($channel_id){
+        $agora_stream = Stream::getChannelList();
+        $agora = 0;
+        foreach ($agora_stream as $key => $value) {
+            if ($value['channel_name'] == $channel_id) {
+                $agora = 1;
+            }
+        }
+        if ($agora) {
+            $stream = Stream::find()->where(['channel'=>$channel_id])->one(); 
+            if ($stream) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static function getStream(){
@@ -138,7 +160,7 @@ class Stream extends \yii\db\ActiveRecord
             LEFT JOIN `stream` ON `stream`.`channel` = `stream_user`.`channel`
             GROUP BY `stream_user`.`channel`
             ORDER BY `user_count` DESC
-            LIMIT 10';
+            LIMIT 20';
 
         $command = $connection->createCommand($sql_top);
         $result = $command->queryAll();  
@@ -148,40 +170,129 @@ class Stream extends \yii\db\ActiveRecord
                 array_push($sorted_top, $value['search_id']);
             }
         }
+
+        //boost users
+        $boost = Advance::getBoostUsers(Advance::BOOST_TYPE_LIVE);
+
         if (count($agora_stream) > 0) {
             $ar = [];
             for ($i=0; $i < count($agora_stream); $i++) { 
                 array_push($ar, $agora_stream[$i]['channel_name']);
             }
-            
-            $all_stream = Stream::find()->where(['in', 'channel', $ar])
-            ->andWhere(['not in', 'user_id', User::bannedUsers()])
-            ->andWhere(['not in', 'user_id', User::whoBannedMe()])
-            ->andWhere(['<>','invite_only', self::INVITE_ONLY])->all();
 
-            if(count($sorted_top) > 0){
-                $trending_list = Stream::find()
+            //broadcaster address
+            $host_country = LiveSetting::getLiveSetting();
+
+            if ($host_country->country == 'Worldwide') {
+                 
+                $all_stream = Stream::find()
                 ->where(['in', 'channel', $ar])
+                ->andWhere(['not in', 'user_id', User::bannedUsers()])
+                ->andWhere(['not in', 'user_id', User::whoBannedMe()])
+                ->andWhere(['<>','invite_only', self::INVITE_ONLY])
+                ->orderBy([new \yii\db\Expression('FIELD (stream.user_id, ' . implode(',', $boost) . ')')])
+                ->all();
+
+                if(count($sorted_top) > 0){
+                    $trending_list = Stream::find()
+                    ->where(['in', 'channel', $ar])
+                    ->andWhere(['<>','invite_only', self::INVITE_ONLY])
+                    ->andWhere(['not in', 'user_id', User::bannedUsers()])
+                    ->andWhere(['not in', 'user_id', User::whoBannedMe()])
+                    ->orderBy([new \yii\db\Expression('FIELD (id, ' . implode(',', $sorted_top) . ')')])
+                    ->limit(10)
+                    ->all();
+                                   
+                } else {
+                    $trending_list = [];
+                }
+                $friends_stream = Stream::find()->where(['in', 'channel', $ar])
+                ->andwhere(['in', 'user_id', $friends])
                 ->andWhere(['<>','invite_only', self::INVITE_ONLY])
                 ->andWhere(['not in', 'user_id', User::bannedUsers()])
                 ->andWhere(['not in', 'user_id', User::whoBannedMe()])
-                ->orderBy([new \yii\db\Expression('FIELD (id, ' . implode(',', $sorted_top) . ')')])
-                ->limit(10)
+                ->orderBy([new \yii\db\Expression('FIELD (user_id, ' . implode(',', $boost) . ')')])
+                ->all(); 
+            } elseif($host_country->country == 'United States') {
+
+                $all_stream = Stream::find()
+                ->leftJoin('client', 'stream.user_id = client.id ')
+                ->where(['in', 'channel', $ar])
+                ->andWhere(['client.address'=>$host_country->country])
+                ->andWhere(['client.state'=>$host_country->state])
+                ->andWhere(['not in', 'stream.user_id', User::bannedUsers()])
+                ->andWhere(['not in', 'stream.user_id', User::whoBannedMe()])
+                ->andWhere(['<>','invite_only', self::INVITE_ONLY])
+                ->orderBy([new \yii\db\Expression('FIELD (stream.user_id, ' . implode(',', $boost) . ')')])
                 ->all();
-                               
+
+                if(count($sorted_top) > 0){
+                    $trending_list = Stream::find()
+                    ->leftJoin('client', 'stream.user_id = client.id ')
+                    ->where(['in', 'channel', $ar])
+                    ->andWhere(['client.address'=>$host_country->country])
+                    ->andWhere(['client.state'=>$host_country->state])
+                    ->andWhere(['<>','invite_only', self::INVITE_ONLY])
+                    ->andWhere(['not in', 'stream.user_id', User::bannedUsers()])
+                    ->andWhere(['not in', 'stream.user_id', User::whoBannedMe()])
+                    ->orderBy([new \yii\db\Expression('FIELD (stream.id, ' . implode(',', $sorted_top) . ')')])
+                    ->limit(10)
+                    ->all();
+                                   
+                } else {
+                    $trending_list = [];
+                }
+                $friends_stream = Stream::find()
+                ->leftJoin('client', 'stream.user_id = client.id ')
+                ->where(['in', 'channel', $ar])
+                ->andWhere(['client.address'=>$host_country->country])
+                ->andWhere(['client.state'=>$host_country->state])
+                ->andwhere(['in', 'stream.user_id', $friends])
+                ->andWhere(['<>','invite_only', self::INVITE_ONLY])
+                ->andWhere(['not in', 'stream.user_id', User::bannedUsers()])
+                ->andWhere(['not in', 'stream.user_id', User::whoBannedMe()])
+                ->orderBy([new \yii\db\Expression('FIELD (stream.user_id, ' . implode(',', $boost) . ')')])
+                ->all(); 
+
             } else {
-                $trending_list = [];
+                $all_stream = Stream::find()
+                ->leftJoin('client', 'stream.user_id = client.id ')
+                ->where(['in', 'channel', $ar])
+                ->andWhere(['client.address'=>$host_country->country])
+                ->andWhere(['not in', 'stream.user_id', User::bannedUsers()])
+                ->andWhere(['not in', 'stream.user_id', User::whoBannedMe()])
+                ->andWhere(['<>','invite_only', self::INVITE_ONLY])
+                ->orderBy([new \yii\db\Expression('FIELD (stream.user_id, ' . implode(',', $boost) . ')')])
+                ->all();
+
+                if(count($sorted_top) > 0){
+                    $trending_list = Stream::find()
+                    ->leftJoin('client', 'stream.user_id = client.id ')
+                    ->where(['in', 'channel', $ar])
+                    ->andWhere(['client.address'=>$host_country->country])
+                    ->andWhere(['<>','invite_only', self::INVITE_ONLY])
+                    ->andWhere(['not in', 'stream.user_id', User::bannedUsers()])
+                    ->andWhere(['not in', 'stream.user_id', User::whoBannedMe()])
+                    ->orderBy([new \yii\db\Expression('FIELD (stream.id, ' . implode(',', $sorted_top) . ')')])
+                    ->limit(10)
+                    ->all();
+                                   
+                } else {
+                    $trending_list = [];
+                }
+                $friends_stream = Stream::find()
+                ->leftJoin('client', 'stream.user_id = client.id ')
+                ->where(['in', 'channel', $ar])
+                ->andWhere(['client.address'=>$host_country->country])
+                ->andwhere(['in', 'stream.user_id', $friends])
+                ->andWhere(['<>','invite_only', self::INVITE_ONLY])
+                ->andWhere(['not in', 'stream.user_id', User::bannedUsers()])
+                ->andWhere(['not in', 'stream.user_id', User::whoBannedMe()])
+                ->orderBy([new \yii\db\Expression('FIELD (stream.user_id, ' . implode(',', $boost) . ')')])
+                ->all(); 
             }
-            $friends_stream = Stream::find()->where(['in', 'channel', $ar])
-            ->andwhere(['in', 'user_id', $friends])
-            ->andWhere(['<>','invite_only', self::INVITE_ONLY])
-            ->andWhere(['not in', 'user_id', User::bannedUsers()])
-            ->andWhere(['not in', 'user_id', User::whoBannedMe()])
-            ->all(); 
 
         } else {
-            //$all_stream = Stream::find()->all();
-            //$friends_stream = Stream::find()->where(['in', 'user_id', $friends])->all();
             $all_stream = [];
             $trending_list = [];
             $friends_stream = [];
@@ -227,9 +338,26 @@ class Stream extends \yii\db\ActiveRecord
                         return StreamUser::find()->where(['channel'=>$channel])->count();
                     },  
                     'info' => 'info',
+                    'boost_end_time' => function(){ 
+                        return Stream::boostEndTime($channel);
+                    },  
                 ],
             ]);    
         return $stream;
+    }
+
+    public static function boostEndTime($id){
+        $end_time = 0;
+        $time_diff = time() - Advance::BOOST_LIVE_TIME;
+        $check = Advance::find()->where(['type'=>Advance::BOOST, 'boost_type'=>Advance::BOOST_TYPE_LIVE, 'status'=>Advance::ITEM_USED, 'channel_id'=>$id])
+        ->andwhere(['>=', 'used_time', $time_diff])
+        ->orderBy('used_time DESC')
+        ->one();
+        if ($check) {
+            return $check->used_time + Advance::BOOST_LIVE_TIME;
+        } else {
+            return 0;
+        }  
     }
 
     public static function userForApi($id){
@@ -245,6 +373,9 @@ class Stream extends \yii\db\ActiveRecord
                     'gender',
                     'image',
                     'birthday',
+                    'age'=>function($user){ 
+                        return User::getAge($user->birthday);
+                    },
                     'latitude',
                     'longitude',
                     'address',
@@ -265,7 +396,16 @@ class Stream extends \yii\db\ActiveRecord
                     'likes'=>function($user){ 
                         return Like::getLike($user->id);
                     },
+                    'advanced'=>function($user){ 
+                        return User::getAdvanced($user->id);
+                    },
+                    'user_setting'=>function($user){ 
+                        return ClientSetting::getSetting($user->id);
+                    },
                     'first_login',
+                    'premium_info'=>function(){ 
+                        return User::getPremiumInfo();
+                    },
                 ],
             ]);    
         return $user;
@@ -315,6 +455,12 @@ class Stream extends \yii\db\ActiveRecord
             'user' => 'user', 
             'count' => 'count',  
             'info' => 'info',
+            'ban_list' => function(){
+                return StreamBan::find()->where(['channel_id'=>$this->channel])->all();
+            },
+            'boost_end_time' => function(){ 
+                return Stream::boostEndTime($this->channel);
+            }, 
         ];
     }
 

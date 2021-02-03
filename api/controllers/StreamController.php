@@ -22,6 +22,7 @@ use api\models\Friend;
 use api\models\StreamInvite;
 use api\models\StreamBan;
 use yii\helpers\ArrayHelper;
+use api\components\PushHelper;
 
 class StreamController extends Controller
 {   
@@ -38,6 +39,13 @@ class StreamController extends Controller
         return $behaviors;
     }
 
+    public function actionIsLive() {
+        if(!$_POST['channel_id']){
+            throw new \yii\web\HttpException('500','channel_id cannot be blank.'); 
+        }
+        return Stream::isLive($_POST['channel_id']);
+    }
+
     public function actionStreamUpdate() {
         if(!$_POST['channel_id']){
             throw new \yii\web\HttpException('500','channel_id cannot be blank.'); 
@@ -48,8 +56,9 @@ class StreamController extends Controller
         if (isset($_POST['invite_only'])) {$stream->invite_only = $_POST['invite_only'];}
         if($stream->save()){
             $socket = [
-                'stream'=>$stream,
-                'friends'=>Friend::getFriend(\Yii::$app->user->id)
+                'stream'=>Stream::streamInfo($_POST['channel_id']),
+                //'stream'=>$stream,
+                //'friends'=>Friend::getFriend(\Yii::$app->user->id)
             ];
             User::socket(0, $socket, 'Start_update');
             return $socket;
@@ -82,14 +91,33 @@ class StreamController extends Controller
         if ($stream->save()) {
             //add stream_user
             StreamUser::addUser(\Yii::$app->user->id, $_POST['channel_id'], StreamUser::__USER_BROAD__, StreamUser::__USER_HOST__);
+            $host = Stream::userForApi(\Yii::$app->user->id);
             $socket = [
-                'stream'=>$stream,
+                'host'=>$host,
+                'stream'=>Stream::streamInfo($_POST['channel_id']),
                 'friends'=>Friend::getFriend(\Yii::$app->user->id)
             ];
             User::socket(0, $socket, 'Start_stream');
+            
+            //PN for friends
+            $friends = [];
+            $connection = Yii::$app->getDb();
+            $sql = "SELECT ".User::userFields()." FROM `friend` l1 
+                INNER JOIN `friend` l2 ON l1.user_source_id = l2.user_target_id AND l2.user_source_id = l1.user_target_id 
+                LEFT JOIN `client` ON `client`.`id` = l2.user_source_id
+                WHERE l1.user_source_id = ".\Yii::$app->user->id;
+            $command = $connection->createCommand($sql);
+            $result1 = $command->queryAll();
+            $host = User::find()->where(['id'=>\Yii::$app->user->id])->one();
+            foreach ($result1 as $key => $value) {
+                $user = User::find()->where(['id'=>$value['id']])->one();
+                $message = $host->first_name.' started a live video. Watch it before it ends!';
+                $data = array("action" => "stream", "user_model" => $host, 'channel_id'=>$stream->channel);
+                PushHelper::send_push($user, $message, $data); 
+            } 
             return $socket;
         } else {
-            throw new \yii\web\HttpException('500','Error save stream'); 
+            throw new \yii\web\HttpException('500','Error start stream'); 
         }
     }
 
@@ -118,8 +146,18 @@ class StreamController extends Controller
     }
 
     public function actionStreamChatAddMsg()
-    {
-        return StreamChat::addMsg(Yii::$app->request);
+    {   
+        $request = Yii::$app->request;
+        if(!$request->post('message')){
+            throw new \yii\web\HttpException('500','message cannot be blank.'); 
+        }
+        if(!$request->post('channel_id')){
+            throw new \yii\web\HttpException('500','channel_id cannot be blank.'); 
+        }
+        if(!$request->post('type')){
+            throw new \yii\web\HttpException('500','type cannot be blank.'); 
+        }
+        return StreamChat::addMsg($request->post('message'), $request->post('channel_id'), $request->post('type'));
     }
 
     public function actionStreamChatGetMsg()
@@ -179,37 +217,6 @@ class StreamController extends Controller
         return Stream::getStream();
     }
 
-    public static function userForApi($id){
-        $user = UserMsg::find()->where(['id'=>$id])->one();
-            $user = ArrayHelper::toArray($user, [
-                'api\models\UserMsg' => [
-                    '_id' => 'id',
-                    'username',    
-                    'first_name',
-                    'last_name',  
-                    'phone',
-                    'status',
-                    'gender',
-                    'image',
-                    'birthday',
-                    'latitude',
-                    'longitude',
-                    'address',
-                    'last_activity',
-                    'premium',
-                    'bio',
-                    'images',
-                    'friends'=>function(){ 
-                        return User::friendCount(\Yii::$app->user->id);
-                    },
-                    'badges'=>function(){ 
-                        return Badge::getBadge(\Yii::$app->user->id);
-                    },
-                ],
-            ]);    
-        return $user;
-    }
-
     public function actionStreamUserListApi() {
         if(!$_POST['channel_id']){
             throw new \yii\web\HttpException('500','channel_id cannot be blank.'); 
@@ -225,10 +232,11 @@ class StreamController extends Controller
         if(!$_POST['reason']){
             throw new \yii\web\HttpException('500','reason cannot be blank.'); 
         }
-        if(!$_POST['msg']){
-            throw new \yii\web\HttpException('500','msg cannot be blank.'); 
+        $msg = '';
+        if (isset($_POST['msg'])) {
+            $msg = $_POST['msg'];
         }
-        return Stream::streamReport(Stream::REPORT_STREAM, $_POST['channel_id'], $_POST['reason'], $_POST['msg'], \Yii::$app->user->id);
+        return Stream::streamReport(Stream::REPORT_STREAM, $_POST['channel_id'], $_POST['reason'], $msg, \Yii::$app->user->id);
     }
 
     public function actionStreamUsers() {
@@ -246,7 +254,15 @@ class StreamController extends Controller
         }
 
         StreamUser::addUser(\Yii::$app->user->id, $_POST['channel_id'], StreamUser::__USER_AUDIENCE__, StreamUser::__USER_NOT_HOST__);
-        $result = ['user'=>self::userForApi(\Yii::$app->user->id), 'stream'=>$_POST['channel_id']];
+        
+        $stream_info = Stream::streamInfo($_POST['channel_id']);
+        $result = [
+            'stream_info'=>Stream::streamInfo($_POST['channel_id']),
+            'user'=>Stream::userForApi(\Yii::$app->user->id),
+            'stream'=>$_POST['channel_id'],
+            'invite_only'=>$stream_info['invite_only'],
+            'boost_end_time'=>$stream_info['boost_end_time'],
+        ];
         User::socket(0, $result, 'Stream_join_user');
         return $result;
     }
@@ -256,7 +272,7 @@ class StreamController extends Controller
             throw new \yii\web\HttpException('500','channel_id cannot be blank.'); 
         }
         StreamUser::deleteUser(\Yii::$app->user->id, $_POST['channel_id']);
-        $result = ['user'=>self::userForApi(\Yii::$app->user->id), 'stream'=>$_POST['channel_id']];
+        $result = ['user'=>Stream::userForApi(\Yii::$app->user->id), 'stream'=>$_POST['channel_id']];
         User::socket(0, $result, 'Stream_disconnect_user');
         \Yii::$app
             ->db
@@ -401,6 +417,37 @@ class StreamController extends Controller
         return StreamBan::find()->where(['channel_id'=>$_POST['channel_id']])->all();
     }
 
+    public function actionStreamKickUser() {
+        if(!$_POST['user_id']){
+            throw new \yii\web\HttpException('500','user_id cannot be blank.'); 
+        }
+        if($_POST['user_id'] == \Yii::$app->user->id){
+            throw new \yii\web\HttpException('500','Cant ban yourself'); 
+        }
+        if(!$_POST['channel_id']){
+            throw new \yii\web\HttpException('500','channel_id cannot be blank.'); 
+        }
+
+        $check_host = Stream::find()->where(['user_id'=>\Yii::$app->user->id,'channel'=>$_POST['channel_id']])->one();
+        if(!$check_host){
+            throw new \yii\web\HttpException('500','You are not hoster of this stream or stream not exist.');
+        }
+
+        \Yii::$app
+            ->db
+            ->createCommand()
+            ->delete('stream_user', ['channel' => $_POST['channel_id'], 'user_id'=>$_POST['user_id']])
+            ->execute();
+
+        $result = [
+                'user'=>$_POST['user_id'],
+                'stream'=>Stream::streamInfo($_POST['channel_id']),
+            ];
+
+        User::socket($_POST['user_id'], $result, 'Stream_user_kick');
+            return $result;
+    }
+
     public function actionStreamBanUser() {
         if(!$_POST['user_id']){
             throw new \yii\web\HttpException('500','user_id cannot be blank.'); 
@@ -428,7 +475,7 @@ class StreamController extends Controller
         if ($ban->save()) {
             $result = [
                 'user'=>$ban->user_id,
-                'stream'=>Stream::find()->where(['channel'=>$_POST['channel_id']])->one(),
+                'stream'=>Stream::streamInfo($_POST['channel_id']),
             ];
             User::socket($ban->user_id, $result, 'Stream_user_ban');
             return $result;
@@ -491,13 +538,21 @@ class StreamController extends Controller
             $inv->save();
 
             $stream = Stream::streamInfo($_POST['channel_id']);
+            $host = Stream::userForApi(\Yii::$app->user->id);
             $result = [
-                'host'=>Stream::userForApi(\Yii::$app->user->id),
+                'host'=>$host,
                 'user'=>Stream::userForApi($_POST['user_id']),
                 'stream'=>$stream,
             ];
             $msg = Chat::addStreamMessage($_POST['user_id'], $_POST['channel_id']);
             User::socket($_POST['user_id'], $result, 'Stream_invite');
+
+            //PN
+            $user = User::find()->where(['id'=>$_POST['user_id']])->one();
+            $message = $host['first_name'].' invited you to join their live!';
+            $data = array("action" => "stream_invite", "user_model" => $host, 'channel_id'=>$_POST['channel_id']);
+            PushHelper::send_push($user, $message, $data); 
+
             $res = [
                 'result'=>$result,
                 'msg'=>$msg,

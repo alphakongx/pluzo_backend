@@ -31,7 +31,7 @@ class Report extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['user_id', 'type', 'reason'], 'integer'],
+            [['user_id', 'type', 'reason'], 'safe'],
             [['msg'], 'safe'],
             [['time'], 'safe'],
             [['channel'], 'safe'],

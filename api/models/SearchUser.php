@@ -66,6 +66,9 @@ class SearchUser extends ActiveRecord
             'gender'=>'gender',
             'avatar'=>'image',
             'birthday'=>'birthday',
+            'age'=>function(){ 
+                return User::getAge($this->birthday);
+            }, 
             'latitude'=>'latitude',
             'longitude'=>'longitude',
             'address'=>'address',
@@ -102,7 +105,7 @@ class SearchUser extends ActiveRecord
         foreach ($result as $key => $value) {
             array_push($ar, $value['id']);
         }
-        return SearchUserPpl::find()->where(['like', 'username', $request])
+        $result = SearchUserPpl::find()->where(['like', 'username', $request])
         ->orwhere(['like', 'first_name', $request])
         ->orwhere(['like', 'last_name', $request])
         ->andWhere(['<>','id', \Yii::$app->user->id])
@@ -110,6 +113,40 @@ class SearchUser extends ActiveRecord
         ->andWhere(['not in', 'id', User::whoBannedMe()])
         ->andWhere(['not in', 'id', $ar])
          ->all();
+
+        $users = [];
+        foreach ($result as $key => $value) {
+
+
+            $images = $command = $connection->createCommand("SELECT `images`.`id`, `images`.`path`  FROM `images` WHERE `user_id`=".$value['id']." ORDER BY  `sort` ASC");
+            $result_images = $command->queryAll();
+            $ar = [
+                'id'=>$value['id'],
+                'username'=>$value['username'],
+                'phone'=>$value['phone'],
+                'image'=>$value['image'],
+                'gender'=>$value['gender'],
+                'birthday'=>$value['birthday'],
+                'age'=>User::getAge($value['birthday']),
+                'status'=>$value['status'],
+                'first_name'=>$value['first_name'],
+                'last_name'=>$value['last_name'],
+                'latitude'=>$value['latitude'],
+                'longitude'=>$value['longitude'],
+                'address'=>$value['address'],
+                'city'=>$value['city'],
+                'state'=>$value['state'],
+                'last_activity'=>$value['last_activity'],
+                'premium'=>User::checkPremium($value['id']),
+                'images'=>$result_images,
+                'friends'=>User::friendCount($value['id']),
+                'badges'=>Badge::getBadge($value['id']),
+                'first_login'=>$value['first_login'],
+                //'likes'=>Like::getLike($value['id']),
+            ];
+            array_push($users, $ar);
+        }
+        return $users;
     }
 
     public function getImages()

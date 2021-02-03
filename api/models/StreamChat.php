@@ -15,7 +15,10 @@ use api\models\User;
  * @property string|null $channel_id
  */
 class StreamChat extends \yii\db\ActiveRecord
-{
+{   
+    const USER_MESSAGE = 0;
+    const SYSTEM_MESSAGE = 1;
+
     /**
      * {@inheritdoc}
      */
@@ -50,24 +53,20 @@ class StreamChat extends \yii\db\ActiveRecord
         ];
     }
 
-    public static function addMsg($request)
+    public static function addMsg($message, $channel_id, $type)
     {   
-        if(!$request->post('message')){
-            throw new \yii\web\HttpException('500','message cannot be blank.'); 
-        }
-        if(!$request->post('channel_id')){
-            throw new \yii\web\HttpException('500','channel_id cannot be blank.'); 
-        }
         $msg = new StreamChat();
         $msg->user_id = \Yii::$app->user->id;
         $msg->created_at = time();
-        $msg->text = $request->post('message');
-        $msg->channel_id = $request->post('channel_id');
+        $msg->text = $message;
+        $msg->channel_id = $channel_id;
+        $msg->type = $type;
         if ($msg->save()) {
             $result = [
                 'user'=>Stream::userForApi(\Yii::$app->user->id),
-                'message'=>$request->post('message'),
-                'stream'=>$request->post('channel_id'),
+                'message'=>$message,
+                'type'=>$type,
+                'stream'=>$channel_id,
             ];
             User::socket(0, $result, 'Stream_new_message');  
             return $msg;
@@ -91,6 +90,7 @@ class StreamChat extends \yii\db\ActiveRecord
             'user_id' => 'user',
             'created_at' => 'created_at',
             'message' => 'text',
+            'type' => 'type',
             'channel_id' => 'channel_id',                                    
         ];
     }

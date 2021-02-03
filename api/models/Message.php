@@ -58,12 +58,32 @@ class Message extends \yii\db\ActiveRecord
             },  
             'image' => 'image',
             'createdAt' => 'created_at',
-            'type' => 'type',  
+            'type' => function(){ 
+                if ($this->type == 'invite') {
+                   if ($this->channel_id) {
+                        $stream = Stream::find()->where(['channel'=>$this->channel_id])->one();
+                        if ($stream) {
+                            return 'invite';
+                        } else {
+                            return 'close';
+                        }
+                    } else {
+                        return 'close';
+                    }
+                } else {
+                    return $this->type;
+                }
+            },  
             'channel_id' => 'channel_id', 
             'stream_info' => function(){
                 if ($this->type == 'invite') {
                     if ($this->channel_id) {
-                        return Stream::find()->where(['channel'=>$this->channel_id])->one();
+                        $stream = Stream::find()->where(['channel'=>$this->channel_id])->one();
+                        if ($stream) {
+                            return $stream;
+                        } else {
+                            return ['name'=>$this->text];
+                        }
                     }
                 } elseif($this->type == 'close') {
                     return ['name'=>$this->text];
