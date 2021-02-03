@@ -11,7 +11,6 @@ use common\models\Token;
 use WebSocket\Client as WEBCLIENT;
 use Aws\Sns\SnsClient; 
 use Aws\Exception\AwsException;
-use Aws\S3\S3Client;
 use yii\imagine\Image;
 use Twilio\Rest\Client as Twil;
 use api\models\Party;
@@ -19,9 +18,9 @@ use api\models\Message;
 use api\models\Advance;
 use api\models\ClientSetting;
 use api\models\BanUser;
-
-//use \Sightengine\SightengineClient;
-//php composer.phar require sightengine/client-php
+use api\models\PremiumUse;
+use common\components\queue\UploadImageAmazon;
+use common\components\queue\Sms;
 
 class User extends ActiveRecord
 {
@@ -37,6 +36,10 @@ class User extends ActiveRecord
     const GOOGLE_MAP_KEY = 'AIzaSyDiern53s3oclBm52lQK0F-YWzLWCA_5BU';
     const SIGHTENGINE_API_USER = '687449323';
     const SIGHTENGINE_API_KEY = 'Mo4xtDj5rYnwfdPHheQU';
+
+    const GENDER_OTHER = 0;
+    const GENDER_MALE = 1;
+    const GENDER_FEMALE = 2;
     
     public $password;
 
@@ -57,6 +60,12 @@ class User extends ActiveRecord
         return [
             TimestampBehavior::className(),
         ];
+    }
+
+    public static function secondsToTime($sec){
+        $dtF = new \DateTime('@0');
+        $dtT = new \DateTime("@$sec");
+        return $dtF->diff($dtT)->format('%a days, %h hours, %i minutes %s seconds');
     }
 
     public static function nudityFilter($path)
@@ -118,6 +127,9 @@ class User extends ActiveRecord
             'gender'=>'gender',
             'image'=>'image',
             'birthday'=>'birthday',
+            'age'=>function(){ 
+                return User::getAge($this->birthday);
+            },  
             'latitude'=>'latitude',
             'longitude'=>'longitude',
             'address'=>'address',
@@ -147,9 +159,18 @@ class User extends ActiveRecord
                     return ClientSetting::getSetting($this->id);
             },
             'first_login',
+            
+            'premium_info'=>function(){ 
+                    return User::getPremiumInfo();
+            },
         ];
     }
 
+    public static function getAge($birthday){
+        $difference = time() - $birthday;
+        $age = floor($difference / 31556926);
+        return $age;
+    }
     
     public static function checkstatus($request){
         $user_id = $request->post('user_id');
@@ -190,7 +211,7 @@ class User extends ActiveRecord
 
     public function checkPremium($user_id){
         $premium = Advance::find()
-        ->where(['user_id'=>\Yii::$app->user->id, 'status'=>Advance::ITEM_AVAILABILITY, 'type'=>Advance::PLUZO_PLUS])
+        ->where(['user_id'=>$user_id, 'status'=>Advance::ITEM_AVAILABILITY, 'type'=>Advance::PLUZO_PLUS])
         ->andwhere(['<=', 'used_time', time()])
         ->andwhere(['>', 'expires_at', time()])
         ->one();
@@ -200,16 +221,180 @@ class User extends ActiveRecord
             return 0;
         }
     }
+
+    public function getPremiumInfo(){
+
+        $premium = Advance::find()
+        ->where(['user_id'=>\Yii::$app->user->id, 'status'=>Advance::ITEM_AVAILABILITY, 'type'=>Advance::PLUZO_PLUS])
+        ->andwhere(['<=', 'used_time', time()])
+        ->andwhere(['>', 'expires_at', time()])
+        ->one();
+
+        if (!$premium) {
+            return [
+                'premium' => 0
+            ];
+        }
+
+        $start_date = $premium->used_time;
+        $end_date = $premium->expires_at;
+
+        //period and sub_period
+        $duration = $end_date - $start_date;
+        $month = 1;
+        $sub_period = 1;
+        $reset_date = null;
+        $super_like_reset_date = null;
+        $swipe_boost_used = 0;
+        $live_boost_used = 0;
+        $super_likes_used_today = 0;
+        $super_like_reset_date = 0;
+
+        if ($duration == Advance::DURATION_PLUZO_PLUS_1_MONTH) {
+            $month = 1;
+        }
+        if ($duration == Advance::DURATION_PLUZO_PLUS_3_MONTH) {
+            $month = 3;
+        }
+        if ($duration == Advance::DURATION_PLUZO_PLUS_12_MONTH) {
+            $month = 12;
+        }
+
+    $now = time();
+    //boost
+    for ($i=1; $i <= $month; $i++) { 
+        $n = $i - 1;
+        $st_d = $start_date + $n*Advance::DURATION_PLUZO_PLUS_1_MONTH;
+        $end_d = $st_d + Advance::DURATION_PLUZO_PLUS_1_MONTH;
+        $select = '';
+        if ($now >= $st_d AND $now < $end_d) {
+            $sub_period = $i;
+            $boost_reset_date = $end_d;
+
+            $swipe_boost_used = PremiumUse::find()
+            ->where(['user_id'=>\Yii::$app->user->id, 'type'=>Advance::BOOST,'boost_type'=>Advance::BOOST_TYPE_SWIPE])
+            ->andwhere(['between', 'time', $st_d, $end_d])
+            ->count();
+
+            $live_boost_used = PremiumUse::find()
+            ->where(['user_id'=>\Yii::$app->user->id, 'type'=>Advance::BOOST,'boost_type'=>Advance::BOOST_TYPE_LIVE])
+            ->andwhere(['between', 'time', $st_d, $end_d])
+            ->count();
+            break;
+        }
+    }
+
+    //super_like
+    for ($i=1; $i <= $month*28; $i++) { 
+        $n = $i - 1;
+        $st_d = $start_date + $n*86400;
+        $end_d = $st_d + 86400;
+        $select = '';
+        if ($now >= $st_d AND $now < $end_d) {
+            
+            $super_likes_used_today = PremiumUse::find()
+            ->where(['user_id'=>\Yii::$app->user->id, 'type'=>Advance::SUPER_LIKE])
+            ->andwhere(['between', 'time', $st_d, $end_d])
+            ->count();
+
+            $super_like_reset_date = $end_d;
+            break;
+        }
+    }
+
+        return [
+            'premium' => 1,
+            'start_date'=>(int)$start_date,
+            'end_date'=>(int)$end_date,
+            'total_month'=>$month,
+            'current_month'=>$sub_period,
+            'swipe_boost_used'=>(int)$swipe_boost_used,
+            'live_boost_used'=>(int)$live_boost_used,
+            'boost_reset_date'=>$boost_reset_date,
+            'super_likes_used_today'=>(int)$super_likes_used_today,
+            'super_like_reset_date'=>$super_like_reset_date,
+        ];
+        
+    }
+
+    public static function boostCountrecursion($used_time, $n){
+
+        $dif = $used_time - Advance::BOOST_SWIPE_TIME;
+        $check = Advance::find()
+        ->where(['type'=>Advance::BOOST, 'boost_type'=>Advance::BOOST_TYPE_SWIPE, 'user_id'=>\Yii::$app->user->id, 'status'=>Advance::ITEM_USED, 'used_time'=>$dif])
+            ->one();
+        if ($check) {
+            $n = $n + 1;
+            return self::boostCountrecursion($check->used_time, $n);
+        } else {
+            return $n;
+        }
+        
+    }
     
     public function getAdvanced($user_id){
         $boosts = Advance::find()->where(['user_id'=>$user_id, 'type'=>1, 'status'=>Advance::ITEM_AVAILABILITY])->count();
         $super_likes = Advance::find()->where(['user_id'=>$user_id, 'type'=>2, 'status'=>Advance::ITEM_AVAILABILITY])->count();
-        $reminds = Advance::find()->where(['user_id'=>$user_id, 'type'=>3, 'status'=>Advance::ITEM_AVAILABILITY])->count();
+        $rewinds = Advance::find()->where(['user_id'=>$user_id, 'type'=>3, 'status'=>Advance::ITEM_AVAILABILITY])->count();
+
+        $time_diff = time() - Advance::BOOST_SWIPE_TIME;
+        $swipe_boost = Advance::find()->where(['type'=>Advance::BOOST, 'boost_type'=>Advance::BOOST_TYPE_SWIPE, 'user_id'=>\Yii::$app->user->id, 'status'=>Advance::ITEM_USED])
+        ->andwhere(['>=', 'used_time', $time_diff])
+        ->orderBy('used_time DESC')->one();
+        if($swipe_boost){
+            $swipe_boost = $swipe_boost->used_time;
+            $end_boost_swipe_time = $swipe_boost + Advance::BOOST_SWIPE_TIME;
+            $boost_swipe_remaining_time = $end_boost_swipe_time - time();
+
+            $count_swipe = self::boostCountrecursion($swipe_boost, 1);
+            if($boost_swipe_remaining_time < 0){$boost_swipe_remaining_time = 0;}
+
+        } else {
+            $swipe_boost = NULL;
+            $end_boost_swipe_time = NULL;
+            $boost_swipe_remaining_time = 0;
+            $count_swipe = 1;
+        }
+
+        $time_diff = time() - Advance::BOOST_LIVE_TIME;
+        $live_boost = Advance::find()->where(['type'=>Advance::BOOST, 'boost_type'=>Advance::BOOST_TYPE_LIVE, 'user_id'=>\Yii::$app->user->id, 'status'=>Advance::ITEM_USED])
+        ->andwhere(['>=', 'used_time', $time_diff])
+        ->orderBy('used_time DESC')->one();
+        if($live_boost){
+            $live_boost = $live_boost->used_time;
+            $end_boost_live_time = $live_boost + Advance::BOOST_LIVE_TIME;
+            $boost_live_remaining_time = $end_boost_live_time - time(); 
+            if($boost_live_remaining_time < 0){$boost_live_remaining_time = 0;}
+        } else {
+            $live_boost = NULL;
+            $end_boost_live_time = NULL;
+            $boost_live_remaining_time = 0;
+        }
+
+        $last_boost = [
+            'swipe_boost'=>(int)$swipe_boost,
+            'end_boost_swipe_time'=>(int)$end_boost_swipe_time,
+            'count_swipe'=>$count_swipe,
+            'boost_swipe_remaining_time'=>(int)$boost_swipe_remaining_time,
+            'live_boost'=>(int)$live_boost,
+            'end_boost_live_time'=>(int)$end_boost_live_time,
+            'boost_live_remaining_time'=>(int)$boost_live_remaining_time,
+        ];
+
+        $info = User::getPremiumInfo();
+        if ($info['premium'] == 1) {
+            $boosts_left = 5 - $info['live_boost_used'] - $info['swipe_boost_used'];
+            $boosts = $boosts + $boosts_left;
+            $likes_left = 5 - $info['super_likes_used_today'];
+            $super_likes = $super_likes + $likes_left;
+            $rewinds = 'unlimited';
+        }
 
         return [
+            'last_boost_time'=>$last_boost,
             'boosts'=>$boosts,
             'super_likes'=>$super_likes,
-            'reminds'=>$reminds,
+            'rewinds'=>$rewinds,
         ];
     }
     
@@ -496,7 +681,50 @@ return $new_username_full;
         $connection = Yii::$app->getDb();
         $command = $connection->createCommand("Select ".User::userFields()." from `client` where `username` Like '%".$request->post('search')."%' OR `first_name` Like '%".$request->post('search')."%' OR `last_name` Like '%".$request->post('search')."%'");
         $result = $command->queryAll();
-        return $result;
+        //return $result;
+        $users = [];
+        $us1 = User::bannedUsers();
+        $us2 = User::whoBannedMe();
+        foreach ($result as $key => $value) {
+
+            //banned users
+            if (in_array($value['id'], $us1)) {
+                continue;
+            }
+            if (in_array($value['id'], $us2)) {
+                continue;
+            }
+
+            $images = $command = $connection->createCommand("SELECT `images`.`id`, `images`.`path`  FROM `images` WHERE `user_id`=".$value['id']." ORDER BY  `sort` ASC");
+            $result_images = $command->queryAll();
+            $ar = [
+                'id'=>$value['id'],
+                'username'=>$value['username'],
+                'phone'=>$value['phone'],
+                'image'=>$value['image'],
+                'gender'=>$value['gender'],
+                'birthday'=>$value['birthday'],
+                'age'=>User::getAge($value['birthday']),
+                'status'=>$value['status'],
+                'first_name'=>$value['first_name'],
+                'last_name'=>$value['last_name'],
+                'latitude'=>$value['latitude'],
+                'longitude'=>$value['longitude'],
+                'address'=>$value['address'],
+                'city'=>$value['city'],
+                'state'=>$value['state'],
+                'last_activity'=>$value['last_activity'],
+                'premium'=>User::checkPremium($value['id']),
+                'images'=>$result_images,
+                'friends'=>User::friendCount($value['id']),
+                'badges'=>Badge::getBadge($value['id']),
+                'first_login'=>$value['first_login'],
+                //'likes'=>Like::getLike($value['id']),
+            ];
+            array_push($users, $ar);
+        }
+        return $users;
+
     }
 
     public function userFields(){
@@ -602,71 +830,31 @@ return $new_username_full;
 
 '.env('SMS_HASH');
         }
-        $client = new Twil(self::TWILIO_API_KEY1, self::TWILIO_API_KEY2);
-        $result = $client->messages->create(
-            $phone,
-            array(
-                'from' => self::TWILIO_NUMBER_FROM,
-                'body' => $message
-            )
-        );
 
-        return $result;
+        Yii::$app->queue->push(new Sms([
+            'phone'=>$phone,
+            'message' => $message,
+        ]));
         //$phone = '+6282144424304';
-        //$message = 'test sms';
-
-       
-    }
-
-    public static function photoReduce($file_name){
-        $dir = \Yii::getAlias('@webroot') . '/uploads/'.$file_name;
-        if(filesize($dir) > 150000){
-            Image::getImagine()->open($dir)->save($dir, ['jpeg_quality' => 100]);
-        }
-        
-        //Image::getImagine()->open($dir)->save($dir, ['jpeg_quality' => 100]);
-
-        /*Image::resize($dir, 300, 400, true)
-        ->save($dir, ['quality' => 100]);*/
-
-        /*$image = Image::getImagine()->open($dir);
-        $metadata = $image->metadata();
-        print_r($image);
-        die();*/
-        //Image::thumbnail($dir, 300, 300)
-        //->save($dir, ['quality' => 50]);
+        //$message = 'test sms';       
     }
 
     public static function s3Upload($catalog, $file_name, $temp_file_location){
             $putdata = fopen($temp_file_location, "r");
-            $filename = \Yii::getAlias('@webroot') . '/uploads/'. $file_name;
-            $fp = fopen($filename, "w");
+            $path = \Yii::getAlias('@webroot') . '/uploads/'. $file_name;
+
+            $fp = fopen($path, "w");
             while ($data = fread($putdata, 1024))
             fwrite($fp, $data);       
             fclose($fp);
             fclose($putdata);
-            User::photoReduce($file_name);
 
-            $s3Client = new S3Client([
-                'region' => 'us-east-2',
-                'version' => '2006-03-01',
-                'credentials' => [
-                        'key'    => env('AWS_KEY'),
-                        'secret' => env('AWS_SECRET'),
-                    ],
-            ]);
-
-            $temp_file_location = \Yii::getAlias('@webroot') . '/uploads/'.$file_name;
-            $result = $s3Client->putObject(
-                array(
-                    'Bucket'=>'pluzo',
-                    'Key'    => $catalog.$file_name,
-                    'SourceFile' => $temp_file_location,
-                    'ACL' => 'public-read',
-                    'ContentType' => 'image',
-                )
-            );
-            unlink($temp_file_location);
+            //queue
+            Yii::$app->queue->push(new UploadImageAmazon([
+                'catalog'=>$catalog,
+                'file_name' => $file_name,
+                'path'=>$path,
+            ]));
     }
 
     public static function socket($user, $data, $action){

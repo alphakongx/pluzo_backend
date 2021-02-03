@@ -133,6 +133,8 @@ $config = [
                 'swipe-search' => 'like/swipe-search',
                 'get-swipe-setting' => 'like/get-swipe-setting',
                 'set-swipe-setting' => 'like/set-swipe-setting',
+                'get-live-setting' => 'like/get-live-setting',
+                'set-live-setting' => 'like/set-live-setting',
                 'sms' => 'site/sms',
                 'check-number' => 'site/check-number',
                 'add-friend' => 'friend/add-friend',
@@ -156,6 +158,7 @@ $config = [
                 'stream-user-list-api' => 'stream/stream-user-list-api',
                 'stream-invite' => 'stream/stream-invite',
                 'stream-cancel-invite' => 'stream/stream-cancel-invite',
+                'stream-kick-user' => 'stream/stream-kick-user',
                 'stream-ban-user' => 'stream/stream-ban-user',
                 'stream-unban-user' => 'stream/stream-unban-user',
                 'stream-ban-list' => 'stream/stream-ban-list',
@@ -174,6 +177,7 @@ $config = [
                 'stream-user-cancel-ask' => 'stream/stream-user-cancel-ask',
                 'stream-chat-add-msg' => 'stream/stream-chat-add-msg',
                 'stream-chat-get-msg' => 'stream/stream-chat-get-msg',
+                'is-live' => 'stream/is-live',
                 //check if already invite user
                 'is-invite' => 'stream/is-invite',
                 'stream-new-people' => 'stream/stream-new-people',
@@ -186,12 +190,15 @@ $config = [
                 //run service
                 'run-service' => 'payment/run-service',
                 'run-boost' => 'payment/run-boost',
-                'run-remind' => 'payment/run-remind',
+                'run-rewind' => 'payment/run-rewind',
                 'stream-report' => 'stream/stream-report',
                 'user-report' => 'site/user-report',
                 'check-user-status' => 'site/check-user-status',
                 'ask-question' => 'site/ask-question',
-                
+                //agora user leave channel
+                'agora-user-leave-channel' => 'site/agora-user-leave-channel',
+                'page-time' => 'site/page-time',
+                'page-leave' => 'site/page-leave',
             ],
         ],
     ],

@@ -20,7 +20,12 @@ class PushHelper
 
     public static function send_push($user, $message, $data)
     {   
-
+        if (!$user->device) {
+            return;
+        }
+        if (!$user->push_id) {
+            return;
+        }
         $app_id = 'b183cfca-4929-462d-b50d-d28ded4347a2'; 
         $token = 'ZjcxZjY2OTAtNzJjZi00MDc3LWI3NjAtYWFkZGUzMGU4NTBl';              
         
@@ -51,7 +56,7 @@ class PushHelper
 
         $response = curl_exec($ch);
         curl_close($ch);
-        print_r($response);
-        die();
+        //print_r($response);
+        //die();
     }    
 }

@@ -34,10 +34,11 @@ class Payment extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
+            ['receipt', 'safe'],
             [['user_id', 'status', 'service_id'], 'integer'],
             [['amount'], 'number', 'message' => 'Amount must be number ex: 6.99!', 'on'=>'pay'],
-            [['time', 'payment_method', 'transaction_id'], 'required'],
-            ['transaction_id', 'unique', 'targetClass' => '\api\models\Payment', 'message' => 'This transaction_id has already exist!', 'on'=>'pay'],
+            [['time', 'payment_method', 'transaction_id'], 'safe'],
+            //['transaction_id', 'unique', 'targetClass' => '\api\models\Payment', 'message' => 'This transaction_id has already exist!', 'on'=>'pay'],
         ];
     }
 
@@ -50,10 +51,16 @@ class Payment extends \yii\db\ActiveRecord
         if($request->post('service_id') > 12 OR $request->post('service_id') < 1){
             throw new \yii\web\HttpException('500','Not have service with this id.'); 
         }
+        if ($request->post('service_id') >= 10 AND $request->post('service_id') <= 12) {
+            if(!$request->post('receipt')) {
+                throw new \yii\web\HttpException('500','receipt cannot be blank.'); 
+            }
+        }
         $time = time();
         $pay = new Payment();
         $pay->scenario = 'pay';
         $pay->status = 1;
+        $pay->receipt = $request->post('receipt');
         $pay->time = $time;
         $pay->user_id = \Yii::$app->user->id;
         $pay->amount = $request->post('amount');

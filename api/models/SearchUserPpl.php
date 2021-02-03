@@ -64,6 +64,9 @@ class SearchUserPpl extends ActiveRecord
             'gender'=>'gender',
             'avatar'=>'image',
             'birthday'=>'birthday',
+            'age'=>function(){ 
+                return User::getAge($this->birthday);
+            },
             'latitude'=>'latitude',
             'longitude'=>'longitude',
             'address'=>'address',

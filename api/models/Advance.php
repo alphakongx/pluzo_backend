@@ -5,6 +5,9 @@ namespace api\models;
 use Yii;
 use api\models\Service;
 use api\models\User;
+use api\models\Stream;
+use api\models\PremiumUse;
+use api\models\Like;
 
 /**
  * This is the model class for table "advance".
@@ -31,6 +34,12 @@ class Advance extends \yii\db\ActiveRecord
 
     const BOOST_TYPE_SWIPE = 1;
     const BOOST_TYPE_LIVE = 2;
+    const BOOST_SWIPE_TIME = 600;
+    const BOOST_LIVE_TIME = 300;
+
+    const DURATION_PLUZO_PLUS_1_MONTH = 2419200;
+    const DURATION_PLUZO_PLUS_3_MONTH = 7257600;
+    const DURATION_PLUZO_PLUS_12_MONTH = 29030400;
 
     /**
      * {@inheritdoc}
@@ -68,43 +77,173 @@ class Advance extends \yii\db\ActiveRecord
         }
     }
 
+    public static function checkBoostLimit($type, $used_time){
+        if ($type == self::BOOST_TYPE_SWIPE) {
+            $start_time = $used_time + self::BOOST_SWIPE_TIME;
+            return $start_time;
+            /*$time_dif = time() - $used_time;
+            $time_left = self::BOOST_SWIPE_TIME - $time_dif;
+            if($time_dif < self::BOOST_SWIPE_TIME){
+                throw new \yii\web\HttpException('500','You can use BOOST only 1 time of 10 min! '.User::secondsToTime($time_left).' left');
+            }*/
+
+        }
+
+        if ($type == self::BOOST_TYPE_LIVE) {
+            $start_time = $used_time + self::BOOST_LIVE_TIME;
+            return $start_time;
+            /*$time_dif = time() - $used_time;
+            $time_left = self::BOOST_LIVE_TIME - $time_dif;
+            if($time_dif < self::BOOST_LIVE_TIME){
+                throw new \yii\web\HttpException('500','You can use BOOST only 1 time of 5 min! '.User::secondsToTime($time_left).' left');
+            }*/
+        }
+    }
+
+    //use premium
+    public static function addPremiumLimit($type, $time){
+        $channel_id = Yii::$app->request->post('channel_id');
+        $advance = new Advance();
+        $advance->created_at = time();
+        $advance->used_time = $time;
+        $advance->expires_at = $time + 2419200;
+        $advance->payment_id = 'Pluzo Plus';
+        $advance->type = self::BOOST;
+        $advance->status = self::ITEM_USED;
+        $advance->user_id = \Yii::$app->user->id;
+        $advance->boost_type = $type;
+        $advance->channel_id = $channel_id;
+        if($advance->save()){
+            $p_use = new PremiumUse();
+            $p_use->time = time();;
+            $p_use->user_id = \Yii::$app->user->id;
+            $p_use->type = self::BOOST;
+            $p_use->boost_type = $type;
+            $advance->channel_id = $channel_id;
+            $p_use->premium_id = $advance->id;
+            $p_use->save();
+
+            if($type == Advance::BOOST_TYPE_LIVE){
+                self::sendSocketLiveBoost($channel_id);
+            }
+            $socket = [
+                'user'=>Stream::userForApi(\Yii::$app->user->id),
+            ];
+            User::socket(0, $socket, 'User_update');
+            return 'Boost type='.$type.' was used!';
+        }
+    }
+
     public static function useBoost($type){
         if($type != self::BOOST_TYPE_SWIPE AND $type != self::BOOST_TYPE_LIVE){
             throw new \yii\web\HttpException('500','Type can be 1(swipe) or 2(live) only');
         }
 
-        if(User::checkPremium(\Yii::$app->user->id)){
-            $check = Advance::find()->where(['type'=>self::BOOST, 'boost_type'=>$type, 'user_id'=>\Yii::$app->user->id, 'status'=>self::ITEM_USED])->orderBy('used_time DESC')->one();
-            if($check){
-                $time_dif = time() - $check->used_time;
-                $time_left = 86400 - $time_dif;
-                if($time_dif < 86400){
-                    throw new \yii\web\HttpException('500','You can use BOOST only 1 time of day! '.$time_left.' seconds left');
+        $channel_id = Yii::$app->request->post('channel_id');
+
+        //check limit
+        $used_time = time();
+        if($type == 1){ 
+            $time_diff = time() - Advance::BOOST_SWIPE_TIME;
+            $check = Advance::find()->where(['type'=>self::BOOST, 'boost_type'=>$type, 'user_id'=>\Yii::$app->user->id, 'status'=>self::ITEM_USED])
+            ->andwhere(['>=', 'used_time', $time_diff])
+            ->orderBy('used_time DESC')
+            ->one();
+            if ($check) {
+                $used_time = self::checkBoostLimit($type, $check->used_time);
+            }
+        }
+        if($type == 2){ 
+            $time_diff = time() - Advance::BOOST_LIVE_TIME;
+            $check = Advance::find()->where(['type'=>self::BOOST, 'boost_type'=>$type, 'channel_id'=>$channel_id, 'status'=>self::ITEM_USED])
+            ->andwhere(['>=', 'used_time', $time_diff])
+            ->orderBy('used_time DESC')
+            ->one();
+            if ($check) {
+                $used_time = self::checkBoostLimit($type, $check->used_time);
+            }
+        }
+
+        //check premium
+        $info = User::getPremiumInfo();
+        if ($info['premium'] == 1) {
+            $pr_limit = $info['swipe_boost_used'] + $info['live_boost_used'];
+            if ($type == self::BOOST_TYPE_SWIPE) {
+                if($pr_limit >= 5){
+                    //use bought
+                    if($obj = self::checkPossibleBoost()){
+                        $obj->used_time = $used_time;
+                        $obj->status = self::ITEM_USED;
+                        $obj->boost_type = $type;
+                        if($obj->save()){
+                            $socket = [
+                                'user'=>Stream::userForApi(\Yii::$app->user->id),
+                            ];
+                            User::socket(0, $socket, 'User_update');
+                            return 'Boost type='.$type.' was used!';
+                        }
+                    } else {
+                        $next_upd = $info['boost_reset_date'] - time();
+                        throw new \yii\web\HttpException('500','Pluzo+ users get only 5 swipe boosts per month! Next update after '.User::secondsToTime($next_upd).'! Also you can buy more boosts now!');
+                    }
+                } else {
+                    return self::addPremiumLimit($type, $used_time);
                 }
             }
-            $advance = new Advance();
-            $advance->created_at = time();
-            $advance->used_time = time();
-            $advance->expires_at = time() + 2419200;
-            $advance->payment_id = 'Pluzo Plus';
-            $advance->type = self::BOOST;
-            $advance->status = self::ITEM_USED;
-            $advance->user_id = \Yii::$app->user->id;
-            $advance->boost_type = $type;
-            if($advance->save()){
-                return 'Boost type='.$type.' was used!';
-            }
+
+            if ($type == self::BOOST_TYPE_LIVE) {
+                if($pr_limit >= 5){
+                    //use bought
+                    if($obj = self::checkPossibleBoost()){
+                        $obj->used_time = $used_time;
+                        $obj->status = self::ITEM_USED;
+                        $obj->boost_type = $type;
+                        $obj->channel_id = $channel_id;
+                        if($obj->save()){
+                            if($type == Advance::BOOST_TYPE_LIVE){
+                                self::sendSocketLiveBoost($channel_id);
+                            }
+                            $socket = [
+                                'user'=>Stream::userForApi(\Yii::$app->user->id),
+                            ];
+                            User::socket(0, $socket, 'User_update');
+                            return 'Boost type='.$type.' was used!';
+                        }
+                    } else {
+                        $next_upd = $info['boost_reset_date'] - time();
+                        throw new \yii\web\HttpException('500','Pluzo+ users get only 5 live boosts per month! Next update after '.User::secondsToTime($next_upd).'! Also you can buy more boosts now!');
+                    }
+                } else {
+                    return self::addPremiumLimit($type, $used_time);
+                }
+            }   
         } else {
+
             if($obj = self::checkPossible(Service::BOOST)){
-                $obj->used_time = time();
+                $obj->used_time = $used_time;
                 $obj->status = self::ITEM_USED;
                 $obj->boost_type = $type;
+                $obj->channel_id = $channel_id;
                 if($obj->save()){
+                    if($type == Advance::BOOST_TYPE_LIVE){
+                        self::sendSocketLiveBoost($channel_id);
+                    }
+                    $socket = [
+                        'user'=>Stream::userForApi(\Yii::$app->user->id),
+                    ];
+                    User::socket(0, $socket, 'User_update');
                     return 'Boost type='.$type.' was used!';
                 }
             }
         }
         throw new \yii\web\HttpException('500','Some error! Call administrator'); 
+    }
+
+    public static function sendSocketLiveBoost($channel_id){
+        $socket = [
+            'stream'=>Stream::streamInfo($channel_id),
+        ];
+        User::socket(0, $socket, 'Start_update');
     }
 
     public static function useSuper_like(){
@@ -113,21 +252,134 @@ class Advance extends \yii\db\ActiveRecord
             $check->used_time = time();
             $check->status = self::ITEM_USED;
             if($check->save()){
+                $socket = [
+                    'user'=>Stream::userForApi(\Yii::$app->user->id),
+                ];
+                User::socket(0, $socket, 'User_update');
                 return true;
             }
         }
         return false; 
     }
 
-    public static function useReminder(){
+    public static function useReminder($user_target_id){
+
+        //if premium
+        $info = User::getPremiumInfo();
+        if ($info['premium'] == 1) {
+                $like = Like::find()->where(['user_source_id'=>\Yii::$app->user->id, 'user_target_id'=>$user_target_id])->one();
+                if($like)
+                {   
+                    \Yii::$app
+                        ->db
+                        ->createCommand()
+                        ->delete('like', ['user_source_id' => \Yii::$app->user->id, 'user_target_id'=>$user_target_id])
+                        ->execute(); 
+
+                    if($like->like == Like::SUPER_LIKE){
+                        $info = User::getPremiumInfo();
+                            $check = PremiumUse::find()
+                            ->where(['type'=>self::SUPER_LIKE, 'user_id'=>\Yii::$app->user->id])
+                            ->orderBy(['time'=>SORT_DESC])->one();
+                            if ($check->id) {
+                                \Yii::$app
+                                ->db
+                                ->createCommand()
+                                ->delete('premium_use', ['id' => $check->id])
+                                ->execute(); 
+                            } else {
+                                $check = Advance::find()
+                                ->where(['type'=>self::SUPER_LIKE, 'user_id'=>\Yii::$app->user->id, 'status'=>self::ITEM_USED])
+                                ->orderBy(['used_time'=>SORT_DESC])->one();
+                                if($check)
+                                {
+                                    $check->used_time = NULL;
+                                    $check->status = self::ITEM_AVAILABILITY;
+                                    $check->save();
+                                }
+                            }
+                    } 
+                } else {
+                    throw new \yii\web\HttpException('500','Like or dislike not exist!');
+                }
+                $socket = [
+                    'user'=>Stream::userForApi(\Yii::$app->user->id),
+                ];
+                User::socket(0, $socket, 'User_update');
+                return 'Rewind was used!';
+        }
+
+
         if($obj = self::checkPossible(Service::REMIND)){
             $obj->used_time = time();
             $obj->status = self::ITEM_USED;
             if($obj->save()){
-                return 'Remind was used!';
+                $like = Like::find()->where(['user_source_id'=>\Yii::$app->user->id, 'user_target_id'=>$user_target_id])->one();
+                if($like)
+                {   
+                    \Yii::$app
+                        ->db
+                        ->createCommand()
+                        ->delete('like', ['user_source_id' => \Yii::$app->user->id, 'user_target_id'=>$user_target_id])
+                        ->execute(); 
+
+                    if($like->like == Like::SUPER_LIKE){
+
+                        //check premium
+                        $info = User::getPremiumInfo();
+                        if ($info['premium'] == 1) {
+                            $check = PremiumUse::find()
+                            ->where(['type'=>self::SUPER_LIKE, 'user_id'=>\Yii::$app->user->id])
+                            ->orderBy(['time'=>SORT_DESC])->one();
+                            if ($check->id) {
+                                \Yii::$app
+                                ->db
+                                ->createCommand()
+                                ->delete('premium_use', ['id' => $check->id])
+                                ->execute(); 
+                            } else {
+                                $check = Advance::find()
+                                ->where(['type'=>self::SUPER_LIKE, 'user_id'=>\Yii::$app->user->id, 'status'=>self::ITEM_USED])
+                                ->orderBy(['used_time'=>SORT_DESC])->one();
+                                if($check)
+                                {
+                                    $check->used_time = NULL;
+                                    $check->status = self::ITEM_AVAILABILITY;
+                                    $check->save();
+                                }
+                            }
+                        } else {
+                            $check = Advance::find()
+                            ->where(['type'=>self::SUPER_LIKE, 'user_id'=>\Yii::$app->user->id, 'status'=>self::ITEM_USED])
+                            ->orderBy(['used_time'=>SORT_DESC])->one();
+                            if($check)
+                            {
+                                $check->used_time = NULL;
+                                $check->status = self::ITEM_AVAILABILITY;
+                                $check->save();
+                            }
+                        }
+                    } 
+                } else {
+                    throw new \yii\web\HttpException('500','Like or dislike not exist!');
+                }
+                $socket = [
+                    'user'=>Stream::userForApi(\Yii::$app->user->id),
+                ];
+                User::socket(0, $socket, 'User_update');
+                return 'Rewind was used!';
             }
         }
         throw new \yii\web\HttpException('500','Some error! Call administrator'); 
+    }
+
+    public static function checkPossibleBoost(){
+        $check = Advance::find()->where(['type'=>Service::BOOST, 'user_id'=>\Yii::$app->user->id, 'status'=>self::ITEM_AVAILABILITY])->one();
+        if($check){
+            return $check;
+        } else {
+            return false;
+        }
     }
 
     public static function checkPossible($type){
@@ -149,9 +401,9 @@ class Advance extends \yii\db\ActiveRecord
             } else {
                 $used_time = $time;
             }   
-                if($service_id == self::SERVICE_PLUZO_PLUS){ $time_duration = 2419200;}
-                if($service_id == self::SERVICE_PLUZO_PLUS_3_MONTH){ $time_duration = 7257600;}
-                if($service_id == self::SERVICE_PLUZO_PLUS_12_MONTH){ $time_duration = 29030400;}
+                if($service_id == self::SERVICE_PLUZO_PLUS){ $time_duration = self::DURATION_PLUZO_PLUS_1_MONTH;}
+                if($service_id == self::SERVICE_PLUZO_PLUS_3_MONTH){ $time_duration = self::DURATION_PLUZO_PLUS_3_MONTH;}
+                if($service_id == self::SERVICE_PLUZO_PLUS_12_MONTH){ $time_duration = self::DURATION_PLUZO_PLUS_12_MONTH;}
                     $advance = new Advance();
                     $advance->created_at = $time;
                     $advance->used_time = $used_time;
@@ -174,16 +426,41 @@ class Advance extends \yii\db\ActiveRecord
                     $advance->user_id = \Yii::$app->user->id;
                     $advance->save();
                 }
+                //add 10 reminds if you buy 10 boosts or 10 lsuperlikes
+                /*if ($service->id == 3 OR $service->id == 6) {
+                    for ($i=0; $i < 10; $i++) { 
+                        $advance = new Advance();
+                        $advance->created_at = $time;
+                        $advance->expires_at = $advance->created_at + $service->during;
+                        $advance->payment_id = $pay_id;
+                        $advance->type = self::REMIND;
+                        $advance->status = self::ITEM_AVAILABILITY;
+                        $advance->user_id = \Yii::$app->user->id;
+                        $advance->save();
+                    }
+                }*/
             }
         }
     }
 
     public static function getBoostUsers($boost_type){
-        $boost = Advance::find()->where(['type'=>self::BOOST, 'boost_type'=>$boost_type, 'status'=>self::ITEM_USED])->orderBy(['used_time'=>SORT_ASC])->all();
+        if ($boost_type == self::BOOST_TYPE_SWIPE) {
+            $time_dif = time() - self::BOOST_SWIPE_TIME;
+        }
+        if ($boost_type == self::BOOST_TYPE_LIVE) {
+            $time_dif = time() - self::BOOST_LIVE_TIME;
+        }
+        
+        $boost = Advance::find()
+        ->where(['type'=>self::BOOST, 'boost_type'=>$boost_type, 'status'=>self::ITEM_USED])
+        ->andwhere(['>','used_time', $time_dif])
+        ->orderBy(['used_time'=>SORT_ASC])
+        ->all();
         $array = [0];
         foreach ($boost as $key => $value) {
             array_push($array, $value['user_id']);
         }
+
         return $array;
     }
 

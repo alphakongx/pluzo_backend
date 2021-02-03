@@ -47,7 +47,7 @@ class Service extends \yii\db\ActiveRecord
             'boost'=>Service::find()->where(['type'=>self::BOOST])->all(),
             'super_like'=>Service::find()->where(['type'=>self::SUPER_LIKE])->all(),
             'remind'=>Service::find()->where(['type'=>self::REMIND])->all(),
-            'premium'=>[],
+            'premium'=>Service::find()->where(['type'=>self::PREMIUM])->all(),
         ];
     }
 

@@ -3,6 +3,7 @@
 namespace api\models;
 
 use Yii;
+use api\models\User;
 
 /**
  * This is the model class for table "swipe_setting".
@@ -34,9 +35,11 @@ class SwipeSetting extends \yii\db\ActiveRecord
     {
         return [
             [['user_id', 'global', 'age_from', 'age_to'], 'safe'],
-            [['latitude', 'longitude', 'location', 'distance'], 'safe'],
+            [['latitude', 'longitude', 'location', 'distance', 'country', 'state', 'city'], 'safe'],
         ];
     }
+
+
 
     /**
      * {@inheritdoc}
@@ -55,18 +58,36 @@ class SwipeSetting extends \yii\db\ActiveRecord
             'distance' => 'Distance',
         ];
     }
+
+
+    public static function getCurrentLocation()
+    {
+        $us = User::find()->where(['id'=>\Yii::$app->user->id])->one();
+        return [
+            'country' => $us->address,
+            'state' => $us->state,
+            'city' => $us->city,
+        ];
+    }
     
     public function fields()
     {
         return [
-            'location' => 'location', 
-            'latitude' => 'latitude', 
-            'longitude' => 'longitude', 
+            //'location' => 'location', 
+            //'latitude' => 'latitude', 
+            'current_location' => 'current_location',
+            'current_location_info' => function(){ 
+                return SwipeSetting::getCurrentLocation();
+            }, 
+            'country' => 'country',
+            'state' => 'state',
+            'city' => 'city',
             'distance' => 'distance', 
             'gender' => 'gender', 
             'age_from' => 'age_from', 
             'age_to' => 'age_to',  
             'global' => 'global',
+            'hide' => 'hide',
         ];
     }
 }

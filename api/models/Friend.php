@@ -10,7 +10,10 @@ use api\models\Like;
 use api\models\Chat;
 use api\models\Indicator;
 use api\models\MessageHide;
-
+use api\components\PushHelper;
+use api\models\FriendRemoved;
+use common\components\queue\Push;
+//use common\models\Test;
 /**
  * This is the model class for table "friend".
  *
@@ -91,6 +94,7 @@ class Friend extends \yii\db\ActiveRecord
                 'image'=>$value['image'],
                 'gender'=>$value['gender'],
                 'birthday'=>$value['birthday'],
+                'age'=>User::getAge($value['birthday']),
                 'status'=>$value['status'],
                 'first_name'=>$value['first_name'],
                 'last_name'=>$value['last_name'],
@@ -115,7 +119,7 @@ class Friend extends \yii\db\ActiveRecord
     
     public function readFlag($user_id)
     {
-        $ind = Indicator::find()->where(['user_current_id'=>\Yii::$app->user->id, 'user_target_id'=>$user_id, 'status'=>Indicator::__NEW_STATUS__])->one();
+        $ind = Indicator::find()->where(['user_target_id'=>\Yii::$app->user->id, 'user_current_id'=>$user_id, 'status'=>Indicator::__NEW_STATUS__])->one();
         if($ind){
             $ind->status = Indicator::__READ_STATUS__;
             if($ind->save()){
@@ -168,6 +172,18 @@ class Friend extends \yii\db\ActiveRecord
             ->delete('friend', ['user_source_id' => $user_target_id, 'user_target_id' => \Yii::$app->user->id])
             ->execute();
 
+            \Yii::$app
+            ->db
+            ->createCommand()
+            ->delete('like', ['user_source_id' => \Yii::$app->user->id, 'user_target_id' => $user_target_id])
+            ->execute();
+            
+            \Yii::$app
+            ->db
+            ->createCommand()
+            ->delete('like', ['user_source_id' => $user_target_id, 'user_target_id' => \Yii::$app->user->id])
+            ->execute();
+
             //delete party, chat, messages
             $chat_id_with_user = Chat::getChatUser($user_target_id);
             if($chat_id_with_user['chat_id']){
@@ -189,6 +205,13 @@ class Friend extends \yii\db\ActiveRecord
                 ->delete('message', ['chat_id' => $chat_id_with_user['chat_id']])
                 ->execute();
             }
+
+            //add to friend removed table
+            $fr = new FriendRemoved();
+            $fr->user_id = \Yii::$app->user->id;
+            $fr->user_target_id = $user_target_id;
+            $fr->time = time();
+            $fr->save();
 
             $result = [
                 'host'=>Stream::userForApi(\Yii::$app->user->id),
@@ -303,12 +326,42 @@ class Friend extends \yii\db\ActiveRecord
             $friend2->save();
         }
 
+            $host = Stream::userForApi(\Yii::$app->user->id);
+            $user_target_model = Stream::userForApi($user_target_id);
             $result = [
-                    'host'=> Stream::userForApi(\Yii::$app->user->id),
-                    'user_target_id'=> Stream::userForApi($user_target_id),
+                    'host'=> $host,
+                    'user_target_id'=> $user_target_model,
             ];
             User::socket($user_target_id, $result, 'Friend_overlap'); 
+            self::sendPushFriends(\Yii::$app->user->id, $user_target_id, 3);
+    }
 
+    public static function sendPushFriends($host_id, $user_id, $n)
+    { 
+        $user_target = User::find()->where(['id'=>$user_id])->one();
+        $host = User::find()->where(['id'=>\Yii::$app->user->id])->one();
+
+        $message = 'You and '.$host->first_name.' are now friends.';
+        $data = array("action" => "friends", "user_model" => Stream::userForApi(\Yii::$app->user->id));
+        PushHelper::send_push($user_target, $message, $data);
+
+        $message = 'You and '.$user_target->first_name.' are now friends.'; 
+        $data = array("action" => "friends", "user_model" => Stream::userForApi($user_id)); 
+        PushHelper::send_push($host, $message, $data); 
+
+        /*
+            Yii::$app->queue->push(new Push([
+                    'action'=>"friends",
+                    'user_from' => $user_id,
+                    'user_to'=>\Yii::$app->user->id,
+            ]));
+
+            Yii::$app->queue->push(new Push([
+                    'action'=>"friends",
+                    'user_from' => \Yii::$app->user->id,
+                    'user_to'=> $user_id,
+            ]));
+        */
     }
 
     public function addFriend($user_target_id)
@@ -337,6 +390,7 @@ class Friend extends \yii\db\ActiveRecord
             $friend->save();
         }
 
+        $pn_sent = 0;
         $host = Stream::userForApi(\Yii::$app->user->id);
         //check like, super_like
         $indicator = 0;
@@ -350,12 +404,16 @@ class Friend extends \yii\db\ActiveRecord
             $friend->show = 1;
             $friend->save();
             if($friend->save()){
+                $user_target_model = Stream::userForApi($user_target_id);
                 $result = [
                     'host'=>$host,
-                    'user_target_id'=>Stream::userForApi($user_target_id),
+                    'user_target_id'=>$user_target_model,
                 ];
                 User::socket($user_target_id, $result, 'Friend_overlap'); 
-                $indicator = 1;      
+                $indicator = 1;   
+
+                self::sendPushFriends(\Yii::$app->user->id, $user_target_id, 1); 
+                $pn_sent = 1;
             }
         }
         
@@ -367,11 +425,26 @@ class Friend extends \yii\db\ActiveRecord
         User::socket($user_target_id, $result, 'Friend_add');
 
         if($friend_check){
+            $friend_check->created_at = $time;
+            $friend_check->save(false);
+
+            $user_target_model = Stream::userForApi($user_target_id);
             $result = [
                     'host'=>$host,
-                    'user_target_id'=>Stream::userForApi($user_target_id),
+                    'user_target_id'=>$user_target_model,
             ];
             User::socket($user_target_id, $result, 'Friend_overlap'); 
+
+            self::sendPushFriends(\Yii::$app->user->id, $user_target_id, 2);
+
+        } else {
+            if ($pn_sent != 1) {
+                $user_target = User::find()->where(['id'=>$user_target_id])->one();
+                $message = $host['first_name'].' sent you a friend request';
+                $data = array("action" => "friend_request", "user_model" => $host); 
+                PushHelper::send_push($user_target, $message, $data);
+                
+            }
         }
         if($friend_check OR $indicator == 1){
             Indicator::checkIndicatorExist(\Yii::$app->user->id, $user_target_id, Indicator::__TYPE_LIKE__, Like::LIKE);
@@ -423,14 +496,39 @@ class Friend extends \yii\db\ActiveRecord
 
     public function getFriend($id)
     {   
-        $flag =  Indicator::find()->where(['user_current_id'=>\Yii::$app->user->id, 'status'=>Indicator::__NEW_STATUS__])->all();
-        $flag_id = [];
-        foreach ($flag as $key => $value) {
-            array_push($flag_id, $value['user_target_id']);
+        $blue_dote_id = -1;
+        $flag_blue_super =  Indicator::find()->where(['user_target_id'=>\Yii::$app->user->id, 'status'=>Indicator::__NEW_STATUS__, 'type'=>Indicator::__TYPE_SUPERLIKE__])->orderBy('time DESC')->all();
+
+        $blue_super = [];
+        foreach ($flag_blue_super as $key => $value) {
+            if($value['user_current_id'] == 0){ continue;}
+            array_push($blue_super, $value['user_current_id']);
+            $blue_dote_id = $value['user_current_id'];
         }
-        if(count($flag_id)){
-            $flag_id = implode(',', $flag_id);
-            $order_by = 'ORDER BY field(l2.user_source_id,'.$flag_id.') DESC, l2.created_at DESC;';
+
+        $flag_blue =  Indicator::find()->where(['user_target_id'=>\Yii::$app->user->id, 'status'=>Indicator::__NEW_STATUS__, 'type'=>Indicator::__TYPE_LIKE__])->orderBy('time DESC')->all();
+        $blue_blue = [];
+        foreach ($flag_blue as $key => $value) {
+            if($value['user_current_id'] == 0){ continue;}
+            array_push($blue_blue, $value['user_current_id']);
+            $blue_dote_id = $value['user_current_id'];
+        }
+
+        $flag =  Indicator::find()->where(['user_target_id'=>\Yii::$app->user->id, 'status'=>Indicator::__READ_STATUS__, 'type'=>Indicator::__TYPE_SUPERLIKE__])->orderBy('time DESC')->all();
+        $super = [];
+        foreach ($flag as $key => $value) {
+            if($value['user_current_id'] == 0){ continue;}
+            array_push($super, $value['user_current_id']);
+        }
+
+        $result_sort = array_merge($blue_super, $blue_blue);
+        $result_sort = array_merge($result_sort, $super);
+        //print_r($result_sort); die();
+
+        if(count($result_sort)){
+            $result_sort = array_reverse($result_sort);
+            $result_sort = implode(',', $result_sort);
+            $order_by = 'ORDER BY field(l2.user_source_id,'.$result_sort.') DESC, l2.created_at DESC;';
         } else {
             $order_by = 'ORDER BY l2.created_at DESC';
         }
@@ -443,6 +541,9 @@ class Friend extends \yii\db\ActiveRecord
 
         $command = $connection->createCommand($sql);
         $result = $command->queryAll();
+
+        $pluzo_team_used = 0;
+        $flag_team = Friend::flag(0);
         $friend = [];
         foreach ($result as $key => $value) {
 
@@ -451,6 +552,19 @@ class Friend extends \yii\db\ActiveRecord
                 continue;
             }
             if (in_array($value['id'], User::whoBannedMe())) {
+                continue;
+            }
+
+            if ($value['status'] != User::STATUS_ACTIVE) {
+                if ($blue_dote_id == $value['id'] AND $flag_team == 1) {
+                    $ar = [
+                        'id'=>0,
+                        'username'=>'Pluzo Team',
+                        'flag'=>$flag_team,
+                    ];
+                    array_push($friend, $ar);
+                    $pluzo_team_used = 1;
+                } 
                 continue;
             }
 
@@ -463,6 +577,7 @@ class Friend extends \yii\db\ActiveRecord
                 'image'=>$value['image'],
                 'gender'=>$value['gender'],
                 'birthday'=>$value['birthday'],
+                'age'=>User::getAge($value['birthday']),
                 'status'=>$value['status'],
                 'first_name'=>$value['first_name'],
                 'last_name'=>$value['last_name'],
@@ -481,18 +596,35 @@ class Friend extends \yii\db\ActiveRecord
                 //'likes'=>Like::getLike($value['id']),
             ];
             array_push($friend, $ar);
-        }
-        $ar = [
+            if ($blue_dote_id == $value['id'] AND $pluzo_team_used == 0 AND $flag_team == 1) {
+                $ar = [
                     'id'=>0,
                     'username'=>'Pluzo Team',
-                    'flag'=>Friend::flag(0),
+                    'flag'=>$flag_team,
                 ];
                 array_push($friend, $ar);
+                $pluzo_team_used = 1;
+            } 
+        }
+
+        if($pluzo_team_used == 0){
+            $ar = [
+                'id'=>0,
+                'username'=>'Pluzo Team',
+                'flag'=>$flag_team,
+            ];
+            if(Friend::flag(0) == 1){
+                array_unshift($friend, $ar);
+            }
+            if(Friend::flag(0) == 0){
+                array_push($friend, $ar);
+            }
+        }
         return $friend;
     }
 
     public function flag($user_target_id){
-        $ind = Indicator::find()->where(['user_current_id'=>\Yii::$app->user->id, 'user_target_id'=>$user_target_id])->one();
+        $ind = Indicator::find()->where(['user_target_id'=>\Yii::$app->user->id, 'user_current_id'=>$user_target_id])->one();
         if($ind){
             if ($ind->type == Indicator::__TYPE_LIKE__ AND $ind->status == Indicator::__READ_STATUS__) {return 0;}
             if ($ind->type == Indicator::__TYPE_LIKE__ AND $ind->status == Indicator::__NEW_STATUS__) {return 1;}
@@ -514,26 +646,8 @@ class Friend extends \yii\db\ActiveRecord
         if (!$user) {
             throw new \yii\web\HttpException('500','User with username '.$username.' not exist'); 
         }
-        if($user->id == \Yii::$app->user->id){
-            throw new \yii\web\HttpException('500','user ID can not be your ID'); 
-        }
-        $friend = Friend::find()->where(['user_source_id'=>\Yii::$app->user->id, 'user_target_id'=>$user->id])->one();
-        if($friend){
-        } else {
-            $friend = new Friend();
-            $friend->user_source_id = \Yii::$app->user->id;
-            $friend->user_target_id = $user->id;
-            $friend->created_at = time();
-            $friend->show = 1;
-            $friend->save();
-        }
-        $result = [
-            'host'=>Stream::userForApi(\Yii::$app->user->id),
-            'user_target_id'=>$user->id,
-            'friend_info'=>self::isFriend($user->id),
-        ];
-        User::socket($user->id, $result, 'Friend_add');
-        return $result;
+
+        return self::addFriend($user->id);
     }
 
 

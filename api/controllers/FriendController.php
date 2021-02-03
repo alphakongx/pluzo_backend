@@ -65,7 +65,19 @@ class FriendController extends Controller
 
     public function actionAddFriendUsername() {
         $request = Yii::$app->request;
-        return Friend::addFriendUsername($request);
+        $username = $request->post('username');
+        if(!$username){
+            throw new \yii\web\HttpException('500','username cannot be blank.'); 
+        }
+        $user = User::find()->where(['username'=>$username])->one();
+        if (!$user) {
+            throw new \yii\web\HttpException('500','User with username '.$username.' not exist'); 
+        }
+        if($user->id == \Yii::$app->user->id){
+            throw new \yii\web\HttpException('500','user ID can not be your ID'); 
+        }
+        //return Friend::addFriendUsername($request);
+        return Friend::addFriend($user->id);
     }
 
     public function actionFriendRemove() {
