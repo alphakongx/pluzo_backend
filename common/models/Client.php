@@ -11,6 +11,7 @@ use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
 use yii\web\IdentityInterface;
 use common\models\Badge;
+use api\models\Like;
 /**
  * User model
  *
@@ -32,7 +33,7 @@ use common\models\Badge;
  * @property \common\models\UserProfile $userProfile
  */
 class Client extends ActiveRecord implements IdentityInterface
-{   
+{       
     const USER_ACTIVE = 1;
     const USER_NOT_ACTIVE = 0;
     const USER_BANNED = 3;
@@ -54,6 +55,25 @@ class Client extends ActiveRecord implements IdentityInterface
     public static function tableName()
     {
         return '{{%client}}';
+    }
+
+
+    public function getCount_friend() {
+
+        //friends
+        $connection = Yii::$app->getDb();
+        $sql = "SELECT COUNT(*) as `count_friend` FROM `friend` l1 
+            INNER JOIN `friend` l2 ON l1.user_source_id = l2.user_target_id AND l2.user_source_id = l1.user_target_id
+            WHERE l1.user_source_id = ".$this->id;
+        $command = $connection->createCommand($sql);
+        $result1 = $command->queryAll();
+        
+        return $result1[0]['count_friend'];
+    }
+
+    public function getCount_swipes() {
+        $like = Like::find()->where(['user_source_id'=>$this->id])->count();
+        return $like;
     }
 
     /**
@@ -226,9 +246,12 @@ class Client extends ActiveRecord implements IdentityInterface
             'email' => Yii::t('common', 'E-mail'),
             'status' => Yii::t('common', 'Status'),
             'access_token' => Yii::t('common', 'API access token'),
-            'created_at' => Yii::t('common', 'Created at'),
+            'created_at' => 'Register Date',
             'updated_at' => Yii::t('common', 'Updated at'),
             'logged_at' => Yii::t('common', 'Last login'),
+            'first_name'=>'Name',
+            'count_friend'=>'Friends',
+            'address'=>'Location',
         ];
     }
 

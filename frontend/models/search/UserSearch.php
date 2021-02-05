@@ -4,13 +4,21 @@ namespace frontend\models\search;
 
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
+use yii\data\ArrayDataProvider;
 use common\models\Client;
+use Yii;
+use yii\db\Expression;
 
 /**
  * UserSearch represents the model behind the search form of `common\models\User`.
  */
 class UserSearch extends Client
-{
+{   
+
+    public $count_friend;
+    public $count_swipes;
+
+
     /**
      * {@inheritdoc}
      */
@@ -18,7 +26,7 @@ class UserSearch extends Client
     {
         return [
             [['id', 'status', 'created_at', 'updated_at', 'logged_at', 'gender'], 'integer'],
-            [['username', 'address', 'auth_key', 'access_token', 'password_hash', 'oauth_client', 'oauth_client_user_id', 'email', 'first_name', 'last_name', 'phone', 'image', 'forgot_sms_code', 'forgot_sms_code_exp', 'login_sms_code', 'login_sms_code_exp', 'reset_pass_code', 'verify_sms_code', 'birthday'], 'safe'],
+            [['username', 'address', 'auth_key', 'access_token', 'password_hash', 'oauth_client', 'oauth_client_user_id', 'email', 'first_name', 'last_name', 'phone', 'image', 'forgot_sms_code', 'forgot_sms_code_exp', 'login_sms_code', 'login_sms_code_exp', 'reset_pass_code', 'verify_sms_code', 'birthday', 'count_friend', 'count_swipes'], 'safe'],
         ];
     }
 
@@ -40,11 +48,11 @@ class UserSearch extends Client
      */
     public function search($params)
     {
-        $query = Client::find()->with(['badge']);;
+        $query = Client::find()->select(new Expression("*, (SELECT COUNT(*) as `count_friend` FROM `friend` l1 
+            INNER JOIN `friend` l2 ON l1.user_source_id = l2.user_target_id AND l2.user_source_id = l1.user_target_id
+            WHERE l1.user_source_id = `client`.`id`) AS `count_friend`"));
 
-
-        // add conditions that should always apply here
-
+//(SELECT * FROM `like` WHERE `user_source_id` = `client`.`id`) AS `swipes`
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'sort'=> ['defaultOrder' => ['created_at' => SORT_DESC]],
@@ -53,8 +61,6 @@ class UserSearch extends Client
         $this->load($params);
 
         if (!$this->validate()) {
-            // uncomment the following line if you do not want to return any records when validation fails
-            // $query->where('0=1');
             return $dataProvider;
         }
 
@@ -67,6 +73,10 @@ class UserSearch extends Client
             'logged_at' => $this->logged_at,
             'gender' => $this->gender,
         ]);
+
+        if(strlen($this->count_friend) > 0){
+            $query->having(['count_friend' => $this->count_friend]);
+        }
 
         $query->andFilterWhere(['like', 'username', $this->username])
             ->andFilterWhere(['like', 'auth_key', $this->auth_key])
@@ -90,4 +100,5 @@ class UserSearch extends Client
 
         return $dataProvider;
     }
+    
 }
