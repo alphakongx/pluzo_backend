@@ -23,6 +23,10 @@ class UserSearch extends User
         ];
     }
 
+    public function getCountfriend() {
+        return $this->username . ' ' . $this->last_name;
+    }
+    
     /**
      * @inheritdoc
      */

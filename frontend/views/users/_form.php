@@ -36,6 +36,8 @@ use yii\widgets\ActiveForm;
     <?= $form->field($model, 'city')->textInput() ?>
     <?= $form->field($model, 'state')->textInput() ?>
 
+    <?= $form->field($model, 'bio')->textarea() ?>
+
 
     <div class="form-group">
         <?= Html::submitButton('Save', ['class' => 'btn btn-success']) ?>
