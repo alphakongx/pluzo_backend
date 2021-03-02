@@ -75,10 +75,6 @@ class AdvanceController extends Controller
         ]);
     }
 
- 
-
- 
-
     /**
      * Finds the Advance model based on its primary key value.
      * If the model is not found, a 404 HTTP exception will be thrown.

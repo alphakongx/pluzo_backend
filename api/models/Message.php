@@ -38,7 +38,7 @@ class Message extends \yii\db\ActiveRecord
         return [
             [['chat_id', 'user_id'], 'required'],
             [['chat_id', 'user_id', 'status'], 'integer'],
-            [['text', 'image', 'created_at'], 'safe'],
+            [['text', 'image', 'created_at', 'chat_id'], 'safe'],
         ];
     }
 
@@ -124,6 +124,13 @@ class Message extends \yii\db\ActiveRecord
             return 0;
         }
         return UserMsg::find()->where(['id'=>$this->user_id])->one();
+    }
+
+    public function attributeLabels()
+    {
+        return [
+            'chat_id' => 'Chat',
+        ];
     }
 
 

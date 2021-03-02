@@ -115,8 +115,6 @@ class Payment extends \yii\db\ActiveRecord
         }
     }
 
-
-
     /**
      * {@inheritdoc}
      */

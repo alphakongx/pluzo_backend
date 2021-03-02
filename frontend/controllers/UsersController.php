@@ -13,6 +13,8 @@ use frontend\models\Chat;
 use frontend\models\Party;
 use frontend\models\Message;
 use common\models\User;
+use api\models\Advance;
+use api\models\User as ApiUser;
 
 /**
  * UsersController implements the CRUD actions for User model.
@@ -40,6 +42,26 @@ class UsersController extends Controller
      */
     public function actionIndex()
     {   
+
+        $users = Client::find()->where(['status'=>1])->all();
+        foreach ($users as $key => $value) {
+            $premium = Advance::find()
+                ->where(['user_id'=>$value['id'], 'status'=>Advance::ITEM_AVAILABILITY, 'type'=>Advance::PLUZO_PLUS])
+                ->andwhere(['<=', 'used_time', time()])
+                ->andwhere(['>', 'expires_at', time()])
+                ->one();
+
+                $us = Client::find()->where(['id'=>$value['id']])->one();
+                if($premium){
+                    $us->premium = 1;
+                } else {
+                    $us->premium = 0;
+                }
+                $us->save();
+            }
+        
+        
+
         $searchModel = new UserSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
@@ -68,6 +90,7 @@ class UsersController extends Controller
             'client' => Client::find()->where(['id'=>$id])->one(),
             'id' => $id,
             'message' => Message::find()->where(['chat_id'=>$chat_id])->all(),
+            'total' => Message::find()->where(['chat_id'=>$chat_id])->count(),
         ]);
     }
 
@@ -80,6 +103,13 @@ class UsersController extends Controller
     public function actionView($id)
     {   
         return $this->render('view', [
+            'model' => $this->findModel($id),
+        ]);
+    }
+
+    public function actionInfo($id)
+    {   
+        return $this->render('info', [
             'model' => $this->findModel($id),
         ]);
     }
@@ -125,6 +155,24 @@ class UsersController extends Controller
         ]);
     }
 
+    public function actionImgDelete()
+    {   
+        $id = $_POST['id'];
+        if($id){
+
+            \Yii::$app
+                ->db
+                ->createCommand()
+                ->delete('images', ['id' => $id])
+                ->execute();
+
+
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     /**
      * Deletes an existing User model.
      * If deletion is successful, the browser will be redirected to the 'index' page.
@@ -133,112 +181,8 @@ class UsersController extends Controller
      * @throws NotFoundHttpException if the model cannot be found
      */
     public function actionDelete($id)
-    {
-        $this->findModel($id)->delete();
-
-        $party = Party::find()->where(['user_id'=>$id])->all();
-        if($party){
-            foreach ($party as $key => $value) {
-                \Yii::$app
-                ->db
-                ->createCommand()
-                ->delete('message', ['chat_id' => $value['chat_id']])
-                ->execute();
-
-                \Yii::$app
-                ->db
-                ->createCommand()
-                ->delete('chat', ['id' => $value['chat_id']])
-                ->execute();
-
-                \Yii::$app
-                ->db
-                ->createCommand()
-                ->delete('party', ['chat_id' => $value['chat_id']])
-                ->execute();
-            }
-        }
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('client', ['id' => $id])
-            ->execute();
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('badge', ['user_id' => $id])
-            ->execute();
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('token', ['user_id' => $id])
-            ->execute();
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('images', ['user_id' => $id])
-            ->execute();
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('chat', ['user_id' => $id])
-            ->execute();
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('friend', ['user_source_id' => $id])
-            ->execute();
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('friend', ['user_target_id' => $id])
-            ->execute();
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('like', ['user_source_id' => $id])
-            ->execute();
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('like', ['user_target_id' => $id])
-            ->execute();
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('message', ['user_id' => $id])
-            ->execute();
-
-        
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('party', ['user_id' => $id])
-            ->execute();
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('stream', ['user_id' => $id])
-            ->execute();
-
-        \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('stream_user', ['user_id' => $id])
-            ->execute();
-
-
+    {   
+        ApiUser::deleteAccount($id);
         return $this->redirect(['index']);
     }
 

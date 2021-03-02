@@ -81,22 +81,11 @@ class Advance extends \yii\db\ActiveRecord
         if ($type == self::BOOST_TYPE_SWIPE) {
             $start_time = $used_time + self::BOOST_SWIPE_TIME;
             return $start_time;
-            /*$time_dif = time() - $used_time;
-            $time_left = self::BOOST_SWIPE_TIME - $time_dif;
-            if($time_dif < self::BOOST_SWIPE_TIME){
-                throw new \yii\web\HttpException('500','You can use BOOST only 1 time of 10 min! '.User::secondsToTime($time_left).' left');
-            }*/
-
         }
 
         if ($type == self::BOOST_TYPE_LIVE) {
             $start_time = $used_time + self::BOOST_LIVE_TIME;
             return $start_time;
-            /*$time_dif = time() - $used_time;
-            $time_left = self::BOOST_LIVE_TIME - $time_dif;
-            if($time_dif < self::BOOST_LIVE_TIME){
-                throw new \yii\web\HttpException('500','You can use BOOST only 1 time of 5 min! '.User::secondsToTime($time_left).' left');
-            }*/
         }
     }
 
@@ -138,9 +127,7 @@ class Advance extends \yii\db\ActiveRecord
         if($type != self::BOOST_TYPE_SWIPE AND $type != self::BOOST_TYPE_LIVE){
             throw new \yii\web\HttpException('500','Type can be 1(swipe) or 2(live) only');
         }
-
         $channel_id = Yii::$app->request->post('channel_id');
-
         //check limit
         $used_time = time();
         if($type == 1){ 
@@ -163,7 +150,6 @@ class Advance extends \yii\db\ActiveRecord
                 $used_time = self::checkBoostLimit($type, $check->used_time);
             }
         }
-
         //check premium
         $info = User::getPremiumInfo();
         if ($info['premium'] == 1) {
@@ -308,8 +294,6 @@ class Advance extends \yii\db\ActiveRecord
                 User::socket(0, $socket, 'User_update');
                 return 'Rewind was used!';
         }
-
-
         if($obj = self::checkPossible(Service::REMIND)){
             $obj->used_time = time();
             $obj->status = self::ITEM_USED;
@@ -322,9 +306,7 @@ class Advance extends \yii\db\ActiveRecord
                         ->createCommand()
                         ->delete('like', ['user_source_id' => \Yii::$app->user->id, 'user_target_id'=>$user_target_id])
                         ->execute(); 
-
                     if($like->like == Like::SUPER_LIKE){
-
                         //check premium
                         $info = User::getPremiumInfo();
                         if ($info['premium'] == 1) {
@@ -426,19 +408,6 @@ class Advance extends \yii\db\ActiveRecord
                     $advance->user_id = \Yii::$app->user->id;
                     $advance->save();
                 }
-                //add 10 reminds if you buy 10 boosts or 10 lsuperlikes
-                /*if ($service->id == 3 OR $service->id == 6) {
-                    for ($i=0; $i < 10; $i++) { 
-                        $advance = new Advance();
-                        $advance->created_at = $time;
-                        $advance->expires_at = $advance->created_at + $service->during;
-                        $advance->payment_id = $pay_id;
-                        $advance->type = self::REMIND;
-                        $advance->status = self::ITEM_AVAILABILITY;
-                        $advance->user_id = \Yii::$app->user->id;
-                        $advance->save();
-                    }
-                }*/
             }
         }
     }

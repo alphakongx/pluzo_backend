@@ -25,8 +25,8 @@ class UserSearch extends Client
     public function rules()
     {
         return [
-            [['id', 'status', 'created_at', 'updated_at', 'logged_at', 'gender'], 'integer'],
-            [['username', 'address', 'auth_key', 'access_token', 'password_hash', 'oauth_client', 'oauth_client_user_id', 'email', 'first_name', 'last_name', 'phone', 'image', 'forgot_sms_code', 'forgot_sms_code_exp', 'login_sms_code', 'login_sms_code_exp', 'reset_pass_code', 'verify_sms_code', 'birthday', 'count_friend', 'count_swipes'], 'safe'],
+            [['id', 'status',  'updated_at', 'logged_at', 'gender'], 'integer'],
+            [['created_at', 'username', 'address', 'auth_key', 'access_token', 'password_hash', 'oauth_client', 'oauth_client_user_id', 'email', 'first_name', 'last_name', 'phone', 'image', 'forgot_sms_code', 'forgot_sms_code_exp', 'login_sms_code', 'login_sms_code_exp', 'reset_pass_code', 'verify_sms_code', 'birthday', 'count_friend', 'count_swipes', 'id', 'premium'], 'safe'],
         ];
     }
 
@@ -50,12 +50,35 @@ class UserSearch extends Client
     {
         $query = Client::find()->select(new Expression("*, (SELECT COUNT(*) as `count_friend` FROM `friend` l1 
             INNER JOIN `friend` l2 ON l1.user_source_id = l2.user_target_id AND l2.user_source_id = l1.user_target_id
-            WHERE l1.user_source_id = `client`.`id`) AS `count_friend`"));
+            WHERE l1.user_source_id = `client`.`id`) AS `count_friend`, (SELECT COUNT(*) as `count_swipes` FROM `like` WHERE `user_source_id`= `client`.`id`) AS `count_swipes`"));
 
-//(SELECT * FROM `like` WHERE `user_source_id` = `client`.`id`) AS `swipes`
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
-            'sort'=> ['defaultOrder' => ['created_at' => SORT_DESC]],
+        ]);
+
+        $dataProvider->setSort([
+            'defaultOrder' => ['created_at' => SORT_DESC],
+            'attributes' => [
+                'id',
+                'created_at',
+                'username',
+                'first_name',
+                'gender',
+                'address',
+                'birthday',
+                'phone',
+                'premium',
+                'count_friend' => [
+                    'asc' => ['count_friend' =>SORT_ASC ],
+                    'desc' => ['count_friend' => SORT_DESC],
+                    'default' => SORT_ASC
+                ],   
+                'count_swipes' => [
+                    'asc' => ['count_swipes' =>SORT_ASC ],
+                    'desc' => ['count_swipes' => SORT_DESC],
+                    'default' => SORT_ASC
+                ],          
+            ]
         ]);
 
         $this->load($params);
@@ -64,7 +87,6 @@ class UserSearch extends Client
             return $dataProvider;
         }
 
-        // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
             'status' => $this->status,
@@ -72,10 +94,15 @@ class UserSearch extends Client
             'updated_at' => $this->updated_at,
             'logged_at' => $this->logged_at,
             'gender' => $this->gender,
+            'premium' => $this->premium,
         ]);
 
         if(strlen($this->count_friend) > 0){
             $query->having(['count_friend' => $this->count_friend]);
+        }
+
+        if(strlen($this->count_swipes) > 0){
+            $query->having(['count_swipes' => $this->count_swipes]);
         }
 
         $query->andFilterWhere(['like', 'username', $this->username])

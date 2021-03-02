@@ -52,13 +52,11 @@ class SearchUser extends ActiveRecord
         ];
     }
            
-    
     public function fields()
     {
         return [
             'id' => 'id',
-            'name' => 'username',   
-            //'token' => 'token', 
+            'name' => 'username',  
             'first_name' => 'first_name',
             'last_name' => 'last_name',  
             'phone' => 'phone',
@@ -87,9 +85,6 @@ class SearchUser extends ActiveRecord
                 return Badge::getBadge($this->id);
             },
             'first_login',
-            /*'likes'=>function(){ 
-                return Like::getLike($this->id);
-            },*/
         ];
     }
 
@@ -142,7 +137,6 @@ class SearchUser extends ActiveRecord
                 'friends'=>User::friendCount($value['id']),
                 'badges'=>Badge::getBadge($value['id']),
                 'first_login'=>$value['first_login'],
-                //'likes'=>Like::getLike($value['id']),
             ];
             array_push($users, $ar);
         }
@@ -154,6 +148,4 @@ class SearchUser extends ActiveRecord
         return $this->hasMany(Images::className(), ['user_id' => 'id'])->
         orderBy(['sort' => SORT_ASC]);       
     }
-
-   
 }   

@@ -50,7 +50,6 @@ class UserGetLike extends ActiveRecord
         ];
     }
            
-    
     public function fields()
     {
         return [
@@ -101,7 +100,4 @@ class UserGetLike extends ActiveRecord
         return $this->hasMany(Images::className(), ['user_id' => 'id'])->
         orderBy(['sort' => SORT_ASC]);               
     }
-
-
-   
 }   

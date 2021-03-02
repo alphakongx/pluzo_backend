@@ -3,6 +3,7 @@
 namespace frontend\models;
 
 use Yii;
+use common\models\Client;
 
 /**
  * This is the model class for table "message".
@@ -33,9 +34,9 @@ class Message extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['chat_id', 'user_id'], 'required'],
-            [['chat_id', 'user_id', 'status'], 'integer'],
-            [['text'], 'string'],
+            [['chat_id', 'user_id'], 'safe'],
+            [['chat_id', 'user_id', 'status'], 'safe'],
+            [['text'], 'safe'],
             [['image', 'created_at', 'type', 'channel_id'], 'safe'],
         ];
     }
@@ -87,6 +88,12 @@ class Message extends \yii\db\ActiveRecord
             return $chat_id;
         }
     }
+
+    public function getUser()
+    {   
+        return $this->hasOne(Client::className(), ['id' => 'user_id']);
+    }
+
 
     public static function addMessage($text, $chat_id)
     {

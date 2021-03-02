@@ -160,7 +160,7 @@ $keyStorage = Yii::$app->keyStorage;
                             'label' => Yii::t('backend', 'Users'),
                             'icon' => FAS::icon('users', ['class' => ['nav-icon']]),
                             'url' => ['/users/index'],
-                            'active' => Yii::$app->controller->id === 'user',
+                            'active' => Yii::$app->controller->id === 'users',
                             //'visible' => Yii::$app->user->can('administrator'),
                         ],
                         [
@@ -189,6 +189,13 @@ $keyStorage = Yii::$app->keyStorage;
                             'icon' => FAS::icon('life-ring', ['class' => ['nav-icon']]),
                             'url' => ['/report/index'],
                             'active' => Yii::$app->controller->id === 'report',
+                            //'visible' => Yii::$app->user->can('administrator'),
+                        ],
+                        [
+                            'label' => Yii::t('backend', 'Live Stream'),
+                            'icon' => FAS::icon('th', ['class' => ['nav-icon']]),
+                            'url' => ['/stream/index'],
+                            'active' => Yii::$app->controller->id === 'stream',
                             //'visible' => Yii::$app->user->can('administrator'),
                         ],
                         
@@ -247,8 +254,8 @@ $keyStorage = Yii::$app->keyStorage;
 
     <!-- footer -->
     <footer class="main-footer <?php echo $keyStorage->get('adminlte.footer-small-text') ? 'text-sm' : null ?>">
-        <strong>&copy; My Company <?php echo date('Y') ?></strong>
-        <div class="float-right d-none d-sm-inline-block"><?php echo Yii::powered() ?></div>
+        <strong>&copy; Pluzo <?php echo date('Y') ?></strong>
+        
     </footer>
     <!-- /footer -->
 

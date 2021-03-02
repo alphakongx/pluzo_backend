@@ -10,15 +10,16 @@ use frontend\models\Message;
  * MessageSearch represents the model behind the search form of `frontend\models\Message`.
  */
 class MessageSearch extends Message
-{
+{   
+    public $find_user;
     /**
      * {@inheritdoc}
      */
     public function rules()
     {
         return [
-            [['id', 'chat_id', 'user_id', 'status'], 'integer'],
-            [['text', 'image', 'created_at'], 'safe'],
+            [['id', 'chat_id', 'user_id', 'status'], 'safe'],
+            [['text', 'image', 'created_at', 'find_user'], 'safe'],
         ];
     }
 
@@ -40,9 +41,7 @@ class MessageSearch extends Message
      */
     public function search($params)
     {
-        $query = Message::find();
-
-        // add conditions that should always apply here
+        $query = Message::find()->joinwith(['user'])->where(['type'=>'message'])->andwhere(['!=', 'user_id', 0])->orderby(['created_at'=>SORT_DESC])->groupBy(['chat_id']);
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
@@ -56,18 +55,18 @@ class MessageSearch extends Message
             return $dataProvider;
         }
 
-        // grid filtering conditions
-        $query->andFilterWhere([
-            'id' => $this->id,
-            'chat_id' => $this->chat_id,
-            'user_id' => $this->user_id,
-            'status' => $this->status,
-        ]);
-
-        $query->andFilterWhere(['like', 'text', $this->text])
-            ->andFilterWhere(['like', 'image', $this->image])
-            ->andFilterWhere(['like', 'created_at', $this->created_at]);
-
+        if (isset($this->find_user)) {
+            $query->andFilterWhere([
+                'client.id' => $this->find_user
+            ]);
+        }
+        
+        if ($this->chat_id) {
+            $query->andFilterWhere(['or',
+            ['like','username',$this->chat_id],
+            ['like','chat_id',$this->chat_id]]);
+        }
+        
         return $dataProvider;
     }
 }

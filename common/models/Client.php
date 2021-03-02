@@ -252,6 +252,8 @@ class Client extends ActiveRecord implements IdentityInterface
             'first_name'=>'Name',
             'count_friend'=>'Friends',
             'address'=>'Location',
+            'id'=>'ID',
+            'premium'=>'Pluzo+',
         ];
     }
 
