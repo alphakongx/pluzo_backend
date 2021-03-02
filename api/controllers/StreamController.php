@@ -50,20 +50,41 @@ class StreamController extends Controller
         if(!$_POST['channel_id']){
             throw new \yii\web\HttpException('500','channel_id cannot be blank.'); 
         }
-        $stream = Stream::find()->where(['channel'=>$_POST['channel_id'], 'user_id'=>\Yii::$app->user->id])->one();
-        if (isset($_POST['name'])) {$stream->name = $_POST['name'];}
-        if (isset($_POST['category'])) {$stream->category = $_POST['category'];}
-        if (isset($_POST['invite_only'])) {$stream->invite_only = $_POST['invite_only'];}
-        if($stream->save()){
-            $socket = [
-                'stream'=>Stream::streamInfo($_POST['channel_id']),
-                //'stream'=>$stream,
-                //'friends'=>Friend::getFriend(\Yii::$app->user->id)
-            ];
-            User::socket(0, $socket, 'Start_update');
-            return $socket;
+        //check broadcasters
+        $headers = array(
+            'Content-Type: application/json',
+            'Authorization: Basic '.Stream::AGORA_KEY
+        );
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_URL, 'https://api.agora.io/dev/v1/channel/user/'.Stream::AGORA_CHANNEL.'/'.$_POST['channel_id']);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLINFO_HEADER_OUT, true);
+        $data = curl_exec($ch);
+        $data = json_decode($data, true);
+
+        if($data['data']['channel_exist'] == 1){
+            $broadcasters = $data['data']['broadcasters'];
+            $audience = $data['data']['audience'];
+            if (in_array(\Yii::$app->user->id, $broadcasters)) {
+                $stream = Stream::find()->where(['channel'=>$_POST['channel_id']])->one();
+                if (isset($_POST['name'])) {$stream->name = $_POST['name'];}
+                if (isset($_POST['category'])) {$stream->category = $_POST['category'];}
+                if (isset($_POST['invite_only'])) {$stream->invite_only = $_POST['invite_only'];}
+                if($stream->save()){
+                    $socket = [
+                        'stream'=>Stream::streamInfo($_POST['channel_id']),
+                    ];
+                    User::socket(0, $socket, 'Start_update');
+                    return $socket;
+                } else {
+                    throw new \yii\web\HttpException('500','channel_id cannot be blank.');             
+                }
+            } else {
+                throw new \yii\web\HttpException('500','You are not broadcaster!'); 
+            }
         } else {
-            throw new \yii\web\HttpException('500','channel_id cannot be blank.');             
+            throw new \yii\web\HttpException('500','Agora answer: Live stream not exist.'); 
         }
     }
 
@@ -83,6 +104,7 @@ class StreamController extends Controller
         }
         $stream = new Stream();
         $stream->user_id = \Yii::$app->user->id;
+        $stream->stop = 0;
         $stream->created_at = time();
         $stream->channel = $_POST['channel_id'];
         $stream->category = $_POST['category'];
@@ -195,13 +217,9 @@ class StreamController extends Controller
                 }
             
             }
-
-            \Yii::$app
-            ->db
-            ->createCommand()
-            ->delete('stream', ['id' => $stream->id])
-            ->execute();
             User::socket(0, $_POST['channel_id'], 'Stop_stream');
+            $stream->stop = 1;
+            $stream->save();
             StreamUser::deleteAllUser($_POST['channel_id']);
             return 'Stream stop!';
         } else {
@@ -617,7 +635,6 @@ class StreamController extends Controller
         $check_inv = StreamInvite::find()->where(['user_id'=>$_POST['user_id'],'channel_id'=>$_POST['channel_id']])->one();
         if($check_inv){
             $result = 1;
-            //throw new \yii\web\HttpException('500','User already invited.'); 
         } else {
             $result = 0;
         }

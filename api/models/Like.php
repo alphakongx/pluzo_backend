@@ -13,6 +13,7 @@ use api\models\Indicator;
 use api\models\Friend;
 use api\models\Stream;
 use api\models\Advance;
+use api\models\LikeOpt;
 
 /**
  * This is the model class for table "like".
@@ -65,7 +66,6 @@ class Like extends \yii\db\ActiveRecord
 
     public static function createSwipeSettingSignup($id, $gender, $latitude, $longitude, $birthday)
     {   
-
         $user_age = self::checkBirthday($birthday);
         if($user_age < 18 ){
             $age_from = 13;
@@ -74,7 +74,6 @@ class Like extends \yii\db\ActiveRecord
             $age_from = 18;
             $age_to = 25;
         }
-
         $create = new SwipeSetting();
         $create->user_id = $id;
         $create->age_from = $age_from;
@@ -134,6 +133,7 @@ class Like extends \yii\db\ActiveRecord
             $create->location = User::getLocationSwipe($create->latitude, $create->longitude);
         }
         if($create->save()){
+            Yii::$app->cache->set('swipe_settings'.\Yii::$app->user->id, $create);
             return $create;
         } else {
             throw new \yii\web\HttpException('500','Error save get save'); 
@@ -141,13 +141,16 @@ class Like extends \yii\db\ActiveRecord
     }
 
     public function getSwipeSetting()
-    {
-        $check = SwipeSetting::find()->where(['user_id'=>\Yii::$app->user->id])->one();
-        if($check){
-            return $check;
-        } else {
-            return Like::createSwipeSetting();
-        }  
+    {   
+        $data = Yii::$app->cache->getOrSet('swipe_settings'.\Yii::$app->user->id, function () {
+            $check = SwipeSetting::find()->where(['user_id'=>\Yii::$app->user->id])->one();
+            if($check){
+                return $check;
+            } else {
+                return Like::createSwipeSetting();
+            }  
+        });
+        return $data;
     }
     
     public function setSwipeSetting($request)
@@ -216,7 +219,6 @@ class Like extends \yii\db\ActiveRecord
             }
         }
         
-
         $host_age = self::checkBirthday($user->birthday);
         if($host_age < 18 ){
             if(isset($age_from)){
@@ -240,16 +242,12 @@ class Like extends \yii\db\ActiveRecord
                 }
             }
         }
-
         $check = SwipeSetting::find()->where(['user_id'=>\Yii::$app->user->id])->one();
         if($check){
             if (isset($hide)) { $check->hide = (int)$hide; }
             if (isset($gender)) { $check->gender = $gender; }
             if (isset($latitude)) { $check->latitude = $latitude; }
             if (isset($longitude)) { $check->longitude = $longitude; }
-            /*if (isset($latitude) AND isset($longitude)) {
-                $check->location = User::getLocationSwipe($latitude, $longitude);
-            }*/
             if (isset($cur_loc)) { 
                 $check->current_location = $cur_loc;
                 $check->country = $country;
@@ -262,6 +260,7 @@ class Like extends \yii\db\ActiveRecord
             if (isset($age_to) AND $age_to > 0) { $check->age_to = (int)$age_to; }
             if (isset($distance) AND $distance > 0) { $check->distance = (int)$distance; }
             if($check->save()){
+                Yii::$app->cache->set('swipe_settings'.\Yii::$app->user->id, $check);
                 return $check;
             } else {
                 throw new \yii\web\HttpException('500','Error save update'); 
@@ -299,16 +298,12 @@ class Like extends \yii\db\ActiveRecord
     public function getLikedUsers()
     {   
         $us = User::find()->where(['id'=>\Yii::$app->user->id])->one();
-        /*if($us->premium != 1){
-            throw new \yii\web\HttpException('500','Only "Pluzo plus" user have access for this method');
-        }*/
         $your_likes = Like::find()->select('user_target_id')->where(['user_source_id'=>\Yii::$app->user->id])->asArray()->all();
         $your_likes_array = [0];
         foreach ($your_likes as $key => $value) {
             array_push($your_likes_array, $value['user_target_id']);
         }
 
-        //friends
         $friends = [0];
         $connection = Yii::$app->getDb();
         $sql = "SELECT ".User::userFields()." FROM `friend` l1 
@@ -355,9 +350,6 @@ class Like extends \yii\db\ActiveRecord
         $like = Like::find()->where(['user_source_id'=>\Yii::$app->user->id, 'user_target_id'=>$user_target_id])->one();
         if($like){
             throw new \yii\web\HttpException('500','Like already sent'); 
-            //$like->like = $is_like;
-            //$like->created_at = time();
-            //$like->save();
         } else {
             //super_like
             if ($is_like == 2) {
@@ -397,7 +389,6 @@ class Like extends \yii\db\ActiveRecord
             $like->created_at = time();
             $like->like = $is_like;
             if($like->save()){
-
                 //friends if overlap likes
                 if($is_like == self::LIKE OR $is_like == self::SUPER_LIKE){
                     $like2 = Like::find()->where(['user_source_id'=>$user_target_id, 'user_target_id'=>\Yii::$app->user->id])->andwhere(['in','like', [self::LIKE,self::SUPER_LIKE]])
@@ -409,11 +400,9 @@ class Like extends \yii\db\ActiveRecord
                 }
             }
         }
-
         if($is_like == self::LIKE OR $is_like == self::SUPER_LIKE){
             Indicator::checkLike(\Yii::$app->user->id, $user_target_id, $is_like);
         }
-
         $target_result = Stream::userForApi($user_target_id);
         $socket = [
             'user'=>$target_result,
@@ -421,13 +410,11 @@ class Like extends \yii\db\ActiveRecord
         User::socket(0, $socket, 'User_update');
         return [
             'like_match'=>$match,
-            //'host'=>Stream::userForApi(\Yii::$app->user->id),
             'host'=>User::find()->where(['id'=>\Yii::$app->user->id])->one(),
             'user_target_id'=>$target_result,
             'like'=>$like
         ];
     }
-
 
     public static function checkLike($user_id){
         $check = Like::find()->where(['user_source_id'=>$user_id, 'user_target_id'=>\Yii::$app->user->id])
@@ -452,7 +439,6 @@ class Like extends \yii\db\ActiveRecord
             array_push($your_likes_array, $value['user_target_id']);
         }
 
-        
         //friends
         $friends = [0];
         $connection = Yii::$app->getDb();
@@ -508,7 +494,7 @@ class Like extends \yii\db\ActiveRecord
         ->andWhere(['not in', 'user_source_id', $your_likes_array])
         ->all();
         
-        $likes = Like::find()->where(['user_target_id'=>\Yii::$app->user->id])->all();
+        //$likes = Like::find()->where(['user_target_id'=>\Yii::$app->user->id])->all();
         foreach ($likes as $key => $value) {
             if ($value['like'] == self::DISLIKE) {
                 $dis++;
@@ -541,7 +527,6 @@ class Like extends \yii\db\ActiveRecord
             'result' => $result,
             'like_info' => Like::getLikeInfo(),
         ]; 
-
     }
 
     public function swipeSearch($request)
@@ -605,17 +590,12 @@ class Like extends \yii\db\ActiveRecord
             'distance'=>$distance,
             'like_info' => Like::getLikeInfo(),
         ];
-
-
-
-        //return $result;
     }
 
     public function swipe()
     {   
-        $id = \Yii::$app->user->id;
         $setting = Like::getSwipeSetting();
-        $user = User::find()->where(['id'=>$id])->one();
+        $user = Yii::$app->user->identity;
         $my_age = date_diff(date_create(date('Y-m-d', $user->birthday)), date_create('today'))->y;
         $lat = NULL;
         $lon = NULL;
@@ -631,15 +611,11 @@ class Like extends \yii\db\ActiveRecord
         }
         if($setting->age_from){ $age_from = $setting->age_from; } else { $age_from=self::AGE_FROM_DEFAULT; }
         if($setting->age_to){ $age_to = $setting->age_to; } else { $age_to=self::AGE_TO_DEFAULT; }
-
-        //for dev
-        //$distance = 10000000;
         if($gender == self::GENDER_DEFAULT){
             $gender_query = '`client`.`gender` IN ( 0, 1, 2 )';
         } else {
             $gender_query = '`client`.`gender`='.$gender.' AND (`swipe_setting`.`gender` = 0 OR `swipe_setting`.`gender` = '.$user->gender.')';
         }
-
         if ($setting->current_location == 1) {
             
             $dist = ' AND `dist` < "'.$distance.'" ORDER BY `dist` ASC';
@@ -649,9 +625,8 @@ class Like extends \yii\db\ActiveRecord
             $sql = 'SELECT *, TIMESTAMPDIFF(YEAR, FROM_UNIXTIME(birthday), NOW()) AS `age_m`, '.DistanceHelper::distance($lat, $lon).' AS `dist`, `client`.`id` as `client_id`
             FROM client 
             LEFT JOIN `swipe_setting` ON `client`.`id` = `swipe_setting`.`user_id`
-            WHERE '.$gender_query.' AND `swipe_setting`.`age_from` <= '.$my_age.' AND `swipe_setting`.`age_to` >= '.$my_age.'  AND `swipe_setting`.`hide` = 0
+            WHERE '.$gender_query.' AND `swipe_setting`.`age_from` <= '.$my_age.' AND `swipe_setting`.`age_to` >= '.$my_age.'  AND `swipe_setting`.`hide` = 0 AND `client`.`status` = '.User::STATUS_ACTIVE.'
             HAVING `age_m`>='.$age_from.' AND `age_m`<="'.$age_to.'"'.$dist; 
-            //echo $sql; die();
         } else {
             $sort_address = 'AND `client`.`address` = "'.$setting->country.'"';
             if ($setting->global == 1) {
@@ -660,39 +635,28 @@ class Like extends \yii\db\ActiveRecord
             $sql = 'SELECT *, TIMESTAMPDIFF(YEAR, FROM_UNIXTIME(birthday), NOW()) AS `age_m`, `client`.`id` as `client_id`
             FROM client 
             LEFT JOIN `swipe_setting` ON `client`.`id` = `swipe_setting`.`user_id`
-            WHERE '.$gender_query.' AND `swipe_setting`.`age_from` <= '.$my_age.' '.$sort_address.' AND `swipe_setting`.`age_to` >= '.$my_age.'  AND `swipe_setting`.`hide` = 0   HAVING `age_m`>='.$age_from.' AND `age_m`<="'.$age_to.'" ORDER BY field(`client`.`address`,"'.$user->address.'") DESC';
+            WHERE '.$gender_query.' AND `swipe_setting`.`age_from` <= '.$my_age.' '.$sort_address.' AND `swipe_setting`.`age_to` >= '.$my_age.'  AND `swipe_setting`.`hide` = 0  AND `client`.`status` = '.User::STATUS_ACTIVE.' HAVING `age_m`>='.$age_from.' AND `age_m`<="'.$age_to.'" ORDER BY field(`client`.`address`,"'.$user->address.'") DESC';
         }
         
-//AND `client`.`city` = "'.$setting->city.'"
         $connection = Yii::$app->getDb();
         $command = $connection->createCommand($sql);      
         $result = $command->queryAll();
-
-
         if(count($result) == 0){
             return 
             [    
                 'swipe' => [],
-                //'distance'=>[],
                 'like_info' => Like::getLikeInfo(),
             ];
         }
-
-        //user from sql result swipe setting
         $sql_result = [];
         foreach ($result as $key => $value) {
             array_push($sql_result, $value['client_id']);
         }
-
-
-
         //boost users
         $boost = Advance::getBoostUsers(Advance::BOOST_TYPE_SWIPE);
-
         //sorted by liked you
         $start = self::getLikeYouForSwipe($boost);
         $start = array_merge($start,$boost);
-
         //friends
         $friends = [];
         $connection = Yii::$app->getDb();
@@ -705,25 +669,25 @@ class Like extends \yii\db\ActiveRecord
         foreach ($result1 as $key => $value) {
             array_push($friends, $value['id']);
         }
-
         $distance = [];
         foreach ($result as $key => $value) {
             array_push($distance, [$value['client_id']=>$value['dist']]);
         }
-
         //hide users you like/dislike
         $like = Like::find()->select('user_target_id')->where(['user_source_id'=>\Yii::$app->user->id])->asArray()->all();
         $like_unlike_users = [];
         foreach ($like as $key => $value) {
             array_push($like_unlike_users, $value['user_target_id']);
         }
-
         //hide removed friends
-        $fr = FriendRemoved::find()->select('user_target_id')->where(['user_id'=>\Yii::$app->user->id])->asArray()->all();
-        $fr_users = [];
-        foreach ($fr as $key => $value) {
-            array_push($fr_users, $value['user_target_id']);
-        }
+        $fr_users = Yii::$app->cache->getOrSet('removed_friends'.\Yii::$app->user->id, function () {
+            $fr = FriendRemoved::find()->select('user_target_id')->where(['user_id'=>\Yii::$app->user->id])->asArray()->all();
+            $fr_users = [];
+            foreach ($fr as $key => $value) {
+                array_push($fr_users, $value['user_target_id']);
+            }
+            return $fr_users;
+        });
 
         $swipe = UserSwipe::find()
         ->where(['<>','id', \Yii::$app->user->id])
@@ -733,15 +697,15 @@ class Like extends \yii\db\ActiveRecord
         ->andWhere(['not in', 'id', $fr_users])
         ->andWhere(['not in', 'id', User::bannedUsers()])
         ->andWhere(['not in', 'id', User::whoBannedMe()])
-        ->andWhere(['status'=>1])
         ->orderBy([new \yii\db\Expression('FIELD (id, ' . implode(',', $start) . ') DESC'), 'last_activity'=>SORT_DESC])
+        ->limit(50)
         ->all();  
 
         return 
         [    
             'swipe' => $swipe,
             'distance'=>$distance,
-            'like_info' => Like::getLikeInfo(),
+            'like_info' => LikeOpt::getLikeInfo($like_unlike_users),
         ];
     }
 
@@ -751,7 +715,6 @@ class Like extends \yii\db\ActiveRecord
         ->andWhere(['not in', 'user_source_id', $boost])
         ->asArray()
         ->all();
-
         $array = [0];
         foreach ($like as $key => $value) {
             array_push($array, $value['user_source_id']);

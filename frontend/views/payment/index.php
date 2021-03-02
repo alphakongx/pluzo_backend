@@ -14,19 +14,10 @@ $this->params['breadcrumbs'][] = $this->title;
 
     <h1><?= Html::encode($this->title) ?></h1>
 
- 
-
-    <?php // echo $this->render('_search', ['model' => $searchModel]); ?>
-
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'filterModel' => $searchModel,
         'columns' => [
-            //['class' => 'yii\grid\SerialColumn'],
-
-            //'id',
-            //'user_id',
-
             [
             'attribute' => 'User',
             'value' => function ($data) {
@@ -38,18 +29,12 @@ $this->params['breadcrumbs'][] = $this->title;
             ['attribute' => 'time', 'format' => ['date', 'php:d-m-Y H:i:s']],
             'payment_method',
             'transaction_id',
-            //'status',
-            //'service_id',
             'amount',
 
                 [
                     'class' => \common\widgets\ActionColumn::class,
                     'template' => '{view}',
-                    
-
                 ],
         ],
     ]); ?>
-
-
 </div>

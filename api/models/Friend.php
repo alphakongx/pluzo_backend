@@ -13,7 +13,7 @@ use api\models\MessageHide;
 use api\components\PushHelper;
 use api\models\FriendRemoved;
 use common\components\queue\Push;
-//use common\models\Test;
+
 /**
  * This is the model class for table "friend".
  *
@@ -109,14 +109,12 @@ class Friend extends \yii\db\ActiveRecord
                 'friends'=>User::friendCount($value['id']),
                 'badges'=>Badge::getBadge($value['id']),
                 'first_login'=>$value['first_login'],
-                //'likes'=>Like::getLike($value['id']),
             ];
             array_push($friend, $ar);
         }
         return $friend;
     }
 
-    
     public function readFlag($user_id)
     {
         $ind = Indicator::find()->where(['user_target_id'=>\Yii::$app->user->id, 'user_current_id'=>$user_id, 'status'=>Indicator::__NEW_STATUS__])->one();
@@ -138,8 +136,6 @@ class Friend extends \yii\db\ActiveRecord
         if(!isset($user_target_id)){
             throw new \yii\web\HttpException('500','user_target_id cannot be blank.'); 
         }
-
-
         if($user_target_id == 0){
             $chat_id = Chat::getChatUser($user_target_id);
             if ($chat_id['chat_id']) {
@@ -159,7 +155,6 @@ class Friend extends \yii\db\ActiveRecord
                 throw new \yii\web\HttpException('500','You not have chat with this user');
             }
         }
-
         if($user_target_id > 0){
             \Yii::$app
             ->db
@@ -206,13 +201,12 @@ class Friend extends \yii\db\ActiveRecord
                 ->execute();
             }
 
-            //add to friend removed table
             $fr = new FriendRemoved();
             $fr->user_id = \Yii::$app->user->id;
             $fr->user_target_id = $user_target_id;
             $fr->time = time();
             $fr->save();
-
+            Yii::$app->cache->delete('removed_friends'.\Yii::$app->user->id);
             $result = [
                 'host'=>Stream::userForApi(\Yii::$app->user->id),
                 'user_target_id'=>Stream::userForApi($user_target_id),
@@ -228,7 +222,6 @@ class Friend extends \yii\db\ActiveRecord
         if(!$user_target_id){
             throw new \yii\web\HttpException('500','user_target_id cannot be blank.'); 
         }
-
         $you_request_to_user = Friend::find()->where(['user_source_id'=>\Yii::$app->user->id, 'user_target_id'=>$user_target_id])->one();
         $user_request_to_you = Friend::find()->where(['user_target_id'=>\Yii::$app->user->id, 'user_source_id'=>$user_target_id])->one();
         $friend = 0;
@@ -325,7 +318,6 @@ class Friend extends \yii\db\ActiveRecord
             $friend2->show = 1;
             $friend2->save();
         }
-
             $host = Stream::userForApi(\Yii::$app->user->id);
             $user_target_model = Stream::userForApi($user_target_id);
             $result = [
@@ -348,20 +340,6 @@ class Friend extends \yii\db\ActiveRecord
         $message = 'You and '.$user_target->first_name.' are now friends.'; 
         $data = array("action" => "friends", "user_model" => Stream::userForApi($user_id)); 
         PushHelper::send_push($host, $message, $data); 
-
-        /*
-            Yii::$app->queue->push(new Push([
-                    'action'=>"friends",
-                    'user_from' => $user_id,
-                    'user_to'=>\Yii::$app->user->id,
-            ]));
-
-            Yii::$app->queue->push(new Push([
-                    'action'=>"friends",
-                    'user_from' => \Yii::$app->user->id,
-                    'user_to'=> $user_id,
-            ]));
-        */
     }
 
     public function addFriend($user_target_id)
@@ -392,7 +370,6 @@ class Friend extends \yii\db\ActiveRecord
 
         $pn_sent = 0;
         $host = Stream::userForApi(\Yii::$app->user->id);
-        //check like, super_like
         $indicator = 0;
         $check_like = Like::checkLike($user_target_id);
         $friend_check = Friend::find()->where(['user_source_id'=>$user_target_id, 'user_target_id'=>\Yii::$app->user->id])->one();
@@ -523,8 +500,6 @@ class Friend extends \yii\db\ActiveRecord
 
         $result_sort = array_merge($blue_super, $blue_blue);
         $result_sort = array_merge($result_sort, $super);
-        //print_r($result_sort); die();
-
         if(count($result_sort)){
             $result_sort = array_reverse($result_sort);
             $result_sort = implode(',', $result_sort);
@@ -593,7 +568,6 @@ class Friend extends \yii\db\ActiveRecord
                 'badges'=>Badge::getBadge($value['id']),
                 'flag'=>Friend::flag($value['id']),
                 'first_login'=>$value['first_login'],
-                //'likes'=>Like::getLike($value['id']),
             ];
             array_push($friend, $ar);
             if ($blue_dote_id == $value['id'] AND $pluzo_team_used == 0 AND $flag_team == 1) {
@@ -635,7 +609,6 @@ class Friend extends \yii\db\ActiveRecord
         }
     }
 
-
     public function addFriendUsername($request)
     {
         $username = $request->post('username');
@@ -650,12 +623,9 @@ class Friend extends \yii\db\ActiveRecord
         return self::addFriend($user->id);
     }
 
-
-
     public function fields()
     {
         return [
-            //'id' => 'id',
             'user_source_id' => 'user_source_id',
             'user_target_id' => 'user_target_id', 
             'user_info' => 'user',
@@ -666,7 +636,4 @@ class Friend extends \yii\db\ActiveRecord
     {   
         return $this->hasOne(UserMsg::className(), ['id' => 'user_target_id']);        
     }
-
-
-
 }

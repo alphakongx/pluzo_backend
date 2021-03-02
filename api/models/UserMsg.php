@@ -51,13 +51,11 @@ class UserMsg extends ActiveRecord
         ];
     }
            
-    
     public function fields()
     {
         return [
             '_id' => 'id',
-            'name' => 'username',   
-            //'token' => 'token', 
+            'name' => 'username',  
             'first_name' => 'first_name',
             'last_name' => 'last_name',  
             'phone' => 'phone',

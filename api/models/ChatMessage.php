@@ -37,14 +37,9 @@ class ChatMessage extends \yii\db\ActiveRecord
         if(!$chats){
             throw new \yii\web\HttpException('500','You not have this chat_id'); 
         }
-
-        //read message
         $connection = Yii::$app->getDb();
         $command = $connection->createCommand("UPDATE `message` SET `status`=1 WHERE `chat_id`=".$request->post('chat_id')." AND `user_id`<>".\Yii::$app->user->id);
         $result = $command->execute(); 
-
-        
-            //banned users
             $party = Party::find()->where(['chat_id'=>$request->post('chat_id')])->andWhere(['<>','user_id', \Yii::$app->user->id])->one();
             if (in_array($party->user_id, User::bannedUsers())) {
                 throw new \yii\web\HttpException('500','User from this chat_id was banned you');
@@ -59,7 +54,6 @@ class ChatMessage extends \yii\db\ActiveRecord
 
     public static function getChatMessage($id)
     {   
-
         $connection = Yii::$app->getDb();
         $command = $connection->createCommand("
             SELECT * FROM `party` WHERE `party`.`chat_id` IN (SELECT `chat_id` FROM `party` WHERE `party`.`user_id` = ".\Yii::$app->user->id.")
@@ -78,7 +72,6 @@ class ChatMessage extends \yii\db\ActiveRecord
             }
             array_push($banned, $value['chat_id']);
         }
-
         $result = ChatMessage::find()
         ->select('chat_id')
         ->where(['user_id'=>$id])
@@ -118,8 +111,6 @@ class ChatMessage extends \yii\db\ActiveRecord
         ];
     }
 
-   
-
     public function getPartner_info()
     {   
         $party = Party::find()->where(['chat_id'=>$this->chat_id])->andWhere(['<>','user_id', \Yii::$app->user->id])->one();
@@ -132,14 +123,10 @@ class ChatMessage extends \yii\db\ActiveRecord
     public function getMessage_tbl()
     {   
         $party = Party::find()->where(['chat_id'=>$this->chat_id])->andWhere(['<>','user_id', \Yii::$app->user->id])->one();
-
-
-
         $limit = 10000;
         if (Yii::$app->request->post('limit')) {
             $limit = Yii::$app->request->post('limit');
         }
-
         if($party->user_id == 0){
 
                 $hideMsg = MessageHide::find()->where(['chat_id'=>$this->chat_id, 'user_id'=>\Yii::$app->user->id])->one();
@@ -148,13 +135,10 @@ class ChatMessage extends \yii\db\ActiveRecord
                 } else {
                     $hidetime = 0;
                 }
-
-
             return $this->hasMany(Message::className(), ['chat_id' => 'chat_id'])->andWhere(['>', 'created_at', $hidetime])->orderBy(['created_at'=>SORT_DESC])->limit($limit); 
         } else {
             return $this->hasMany(Message::className(), ['chat_id' => 'chat_id'])->orderBy(['created_at'=>SORT_DESC])->limit($limit); 
         }
-              
     }
 
 }

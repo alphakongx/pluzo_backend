@@ -3,20 +3,16 @@
 use yii\helpers\Html;
 use yii\grid\GridView;
 use yii\helpers\Url;
-
+use api\models\User;
 /* @var $this yii\web\View */
 /* @var $searchModel frontend\models\search\ReportSearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
 
 $this->title = 'Reports';
-$this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="report-index">
 
-    <h1><?= Html::encode($this->title) ?></h1>
-
-
-    <?php // echo $this->render('_search', ['model' => $searchModel]); ?>
+   
 
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
@@ -27,7 +23,11 @@ $this->params['breadcrumbs'][] = $this->title;
             [
             'attribute' => 'User',
             'value' => function ($data) {
-                return Html::a(Html::encode('User').' '.$data->user_id, Url::to(['users/view', 'id' => $data->user_id]));
+                $user = User::find()->where(['id'=>$data->user_id])->one();
+                if ($user) {
+                    return Html::a($user->username, Url::to(['users/index', 'UserSearch[id]' => $data->user_id]));
+                }
+                
             },
             'format' => 'raw',
         ],
@@ -59,19 +59,21 @@ $this->params['breadcrumbs'][] = $this->title;
             [
                 'attribute' => 'User or Channel ID',
                 'value' => function ($data) {
-                    return $data->channel;
+                    if($data->type == 2){
+                        $user = User::find()->where(['id'=>$data->channel])->one();
+                        if ($user) {
+                            return Html::a($user->username, Url::to(['users/index', 'UserSearch[id]' => $data->user_id]));
+                        }
+                    }
+                        return '';
+                    
                 },
                 'format' => 'raw',
             ],
 
             ['attribute' => 'time', 'format' => ['date', 'php:d-m-Y H:i:s']],
 
-            [
-                    'class' => \common\widgets\ActionColumn::class,
-                    'template' => '{view}',
-                    
-
-                ],
+          
         ],
     ]); ?>
 

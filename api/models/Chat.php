@@ -113,9 +113,6 @@ class Chat extends \yii\db\ActiveRecord
             LEFT JOIN `client` ON `client`.`id` = `message`.`user_id`
             WHERE `message`.`text` Like '%".$request."%' AND `message`.`chat_id` IN ('".$array."')");
         $result = $command->queryAll();
-
-
-
         $chat_with_team = self::getChatUser(0);
         if($chat_with_team['chat_id']){
             $hideMsg = MessageHide::find()->where(['chat_id'=>$chat_with_team['chat_id'], 'user_id'=>\Yii::$app->user->id])->one();
@@ -127,25 +124,20 @@ class Chat extends \yii\db\ActiveRecord
         } else {
             $hidetime = 0;
         }
-
         $final = [];
         $us1 = User::bannedUsers();
         $us2 = User::whoBannedMe();
         foreach ($result as $key => $value) {
-
-            //banned users
             if (in_array($value['id'], $us1)) {
                 continue;
             }
             if (in_array($value['id'], $us2)) {
                 continue;
             }
-
             $partner_id = Party::find()
             ->where(['chat_id'=>$value['chat_id']])
             ->andwhere(['<>', 'user_id', $value['id']])
             ->one();
-
             if($partner_id->user_id == 0){
                 $partner_model = [
                     'id' => 0,
@@ -158,7 +150,6 @@ class Chat extends \yii\db\ActiveRecord
             } else {
                 $partner_model = Stream::userForApi($partner_id->user_id);
             }
-
             if ($value['id']) {
                 $ar = [
                     'id' => $value['id'],
@@ -198,13 +189,11 @@ class Chat extends \yii\db\ActiveRecord
                         'chat_id' => $value['chat_id'],
                         'created_at' => $value['created_at'],
                         'partner_model' => Stream::userForApi(\Yii::$app->user->id),
-
                     ];
                     array_push($final, $ar);
                 }
                 
             }   
-            
         }
         return $final;
     }
@@ -224,10 +213,8 @@ class Chat extends \yii\db\ActiveRecord
         if (in_array($send_to, User::whoBannedMe())) {
             throw new \yii\web\HttpException('500','You cant send message to user who banned you');
         }
-
         $send_push = $request->post('send_push');
         if (!isset($send_push)) { $send_push = 1; }
-
         $chat_id_with_user = self::getChatUser($send_to);
         if($chat_id_with_user['chat_id']){
             if ($chat_id != $chat_id_with_user['chat_id']) {
@@ -275,36 +262,27 @@ class Chat extends \yii\db\ActiveRecord
         $message->type = 'message';
         $message->text = $request->post('text');
         $message->created_at = time();
-
-        //image
         if( count($_FILES)>0 AND $_FILES['image']['tmp_name'] ) {
             $file_name = uniqid().'.jpg';   
             $temp_file_location = $_FILES['image']['tmp_name']; 
-            User::s3Upload('chat/', $file_name, $temp_file_location);
+            User::s3UploadDirectFull('chat/', $file_name, $temp_file_location);
             $message->image = env('AWS_S3_PLUZO').'chat/'.$file_name;
         }
-
-        //check read message and send PN
         $check =  Message::find()->where(['chat_id'=>$chat_id, 'type'=>Message::__MESSAGE_, 'status'=>0, 'user_id'=>\Yii::$app->user->id])->count();
         if($check == 0 AND $send_push == 1){
             $send_to = $request->post('send_to');
             $host = User::find()->where(['id'=>\Yii::$app->user->id])->one();
             $user = User::find()->where(['id'=>$send_to])->one();
-            $text_message = $host->first_name.' sent you message';
+            $text_message = $host->first_name.' sent you a message.';
             $data = array("action" => "chat", 'user_model'=>Stream::userForApi($host), 'chat_id'=>$chat_id); 
             PushHelper::send_push($user, $text_message, $data);
         }
-
-
         $message->save();
-
-
         $result = Chat::getMessagers($message->chat_id, $message->id);
         User::socket($request->post('send_to'), (array)$result, 'Chat');
         return $result;
     }
 
-    //register msg
     public static function signupMsg($user_id)
     {  
         $chat = new Chat();
@@ -418,7 +396,7 @@ https://pluzo.com/community-guidelines';
             if( count($_FILES)>0 AND $_FILES['image']['tmp_name'] ) {
                 $file_name = uniqid().'.jpg';   
                 $temp_file_location = $_FILES['image']['tmp_name']; 
-                User::s3Upload('chat/', $file_name, $temp_file_location);
+                User::s3UploadDirectFull('chat/', $file_name, $temp_file_location);
                 $msg->image = env('AWS_S3_PLUZO').'chat/'.$file_name;
             }
             if ($msg->save()) {
@@ -468,7 +446,6 @@ https://pluzo.com/community-guidelines';
         }
     }
 
-    
     /**
      * {@inheritdoc}
      */

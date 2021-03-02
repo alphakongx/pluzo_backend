@@ -21,6 +21,8 @@ use api\models\BanUser;
 use api\models\PremiumUse;
 use common\components\queue\UploadImageAmazon;
 use common\components\queue\Sms;
+use Aws\S3\S3Client;
+use Aws\S3\Exception\S3Exception;
 
 class User extends ActiveRecord
 {
@@ -42,7 +44,6 @@ class User extends ActiveRecord
     const GENDER_FEMALE = 2;
     
     public $password;
-
 
     /**
      * @inheritdoc
@@ -78,17 +79,20 @@ class User extends ActiveRecord
     }
 
     public static function bannedUsers()
-    {
-        $users = BanUser::find()->where(['user_source_id'=>\Yii::$app->user->id])->all();
-        $banned = [];
-        foreach ($users as $key => $value) {
-            array_push($banned, $value['user_target_id']);
-        }
-        return $banned;
+    {   
+        $data = Yii::$app->cache->getOrSet('bannedUsers'.\Yii::$app->user->id, function () {
+            $users = BanUser::find()->where(['user_source_id'=>\Yii::$app->user->id])->all();
+            $banned = [];
+            foreach ($users as $key => $value) {
+                array_push($banned, $value['user_target_id']);
+            }
+            return $banned;
+        });
+        return $data;
     }
 
     public static function whoBannedMe()
-    {
+    {   
         $users = BanUser::find()->where(['user_target_id'=>\Yii::$app->user->id])->all();
         $banned = [];
         foreach ($users as $key => $value) {
@@ -201,7 +205,6 @@ class User extends ActiveRecord
                     'last_activity'=>$user->last_activity,
                 ];
             }
-            //User::socket(\Yii::$app->user->id, $socket_result, $action);
             return $socket_result;
         } else {
             throw new \yii\web\HttpException('500','User not exist.'); 
@@ -222,7 +225,7 @@ class User extends ActiveRecord
         }
     }
 
-    public function getPremiumInfo(){
+    public static function getPremiumInfo(){
 
         $premium = Advance::find()
         ->where(['user_id'=>\Yii::$app->user->id, 'status'=>Advance::ITEM_AVAILABILITY, 'type'=>Advance::PLUZO_PLUS])
@@ -332,7 +335,7 @@ class User extends ActiveRecord
         
     }
     
-    public function getAdvanced($user_id){
+    public static function getAdvanced($user_id){
         $boosts = Advance::find()->where(['user_id'=>$user_id, 'type'=>1, 'status'=>Advance::ITEM_AVAILABILITY])->count();
         $super_likes = Advance::find()->where(['user_id'=>$user_id, 'type'=>2, 'status'=>Advance::ITEM_AVAILABILITY])->count();
         $rewinds = Advance::find()->where(['user_id'=>$user_id, 'type'=>3, 'status'=>Advance::ITEM_AVAILABILITY])->count();
@@ -419,12 +422,8 @@ class User extends ActiveRecord
                 $isAvailable = true;
             }
         } while( !$isAvailable && $i++<9000);
-return $new_username_full;
-        
+        return $new_username_full;
     }
-
-
-
 
     public function savePhotoRegister($image, $user_id)
     {   
@@ -437,7 +436,7 @@ return $new_username_full;
         for ($i=0; $i < count($image['name']); $i++) { 
             $file_name = uniqid().'.jpg';   
             $temp_file_location = $image['tmp_name'][$i]; 
-            User::s3Upload('user/', $file_name, $temp_file_location);
+            User::s3UploadDirect('user/', $file_name, $temp_file_location);
             $im = new Images();
             $im->user_id = $user_id; 
             $im->avator = 0;
@@ -457,7 +456,6 @@ return $new_username_full;
             $user->image = '';
             $user->save();
         }
-
     }
 
     public function savePhoto($image)
@@ -471,7 +469,7 @@ return $new_username_full;
         for ($i=0; $i < count($image['name']); $i++) { 
             $file_name = uniqid().'.jpg';   
             $temp_file_location = $image['tmp_name'][$i]; 
-            User::s3Upload('user/', $file_name, $temp_file_location);
+            User::s3UploadDirect('user/', $file_name, $temp_file_location);
             $im = new Images();
             $im->user_id = \Yii::$app->user->id; 
             $im->avator = 0;
@@ -494,10 +492,8 @@ return $new_username_full;
     }
 
     
-    public function deleteAccount()
+    public static function deleteAccount($id)
     {   
-        $id = \Yii::$app->user->id;
-        
         $party = Party::find()->where(['user_id'=>$id])->all();
         if($party){
             foreach ($party as $key => $value) {
@@ -518,6 +514,15 @@ return $new_username_full;
                 ->createCommand()
                 ->delete('party', ['chat_id' => $value['chat_id']])
                 ->execute();
+
+                $partner = Party::find()->where(['chat_id' => $value['chat_id']])->andwhere(['<>', 'user_id', $id])->one();
+                if ($partner) {
+                    \Yii::$app
+                    ->db
+                    ->createCommand()
+                    ->delete('party', ['id' => $partner->id])
+                    ->execute();
+                }
             }
         }
 
@@ -605,6 +610,14 @@ return $new_username_full;
             ->createCommand()
             ->delete('client_setting', ['user_id' => $id])
             ->execute();
+
+        \Yii::$app
+            ->db
+            ->createCommand()
+            ->delete('advance', ['user_id' => $id])
+            ->execute();
+
+            
     }
 
 
@@ -681,7 +694,6 @@ return $new_username_full;
         $connection = Yii::$app->getDb();
         $command = $connection->createCommand("Select ".User::userFields()." from `client` where `username` Like '%".$request->post('search')."%' OR `first_name` Like '%".$request->post('search')."%' OR `last_name` Like '%".$request->post('search')."%'");
         $result = $command->queryAll();
-        //return $result;
         $users = [];
         $us1 = User::bannedUsers();
         $us2 = User::whoBannedMe();
@@ -719,12 +731,10 @@ return $new_username_full;
                 'friends'=>User::friendCount($value['id']),
                 'badges'=>Badge::getBadge($value['id']),
                 'first_login'=>$value['first_login'],
-                //'likes'=>Like::getLike($value['id']),
             ];
             array_push($users, $ar);
         }
         return $users;
-
     }
 
     public function userFields(){
@@ -834,9 +844,7 @@ return $new_username_full;
         Yii::$app->queue->push(new Sms([
             'phone'=>$phone,
             'message' => $message,
-        ]));
-        //$phone = '+6282144424304';
-        //$message = 'test sms';       
+        ]));      
     }
 
     public static function s3Upload($catalog, $file_name, $temp_file_location){
@@ -848,13 +856,107 @@ return $new_username_full;
             fwrite($fp, $data);       
             fclose($fp);
             fclose($putdata);
-
-            //queue
             Yii::$app->queue->push(new UploadImageAmazon([
                 'catalog'=>$catalog,
                 'file_name' => $file_name,
                 'path'=>$path,
             ]));
+    }
+
+
+    public static function photoReduce($file_name){
+        $dir = \Yii::getAlias('@webroot') . '/uploads/'.$file_name;
+        if(filesize($dir) > 150000){
+            Image::getImagine()->open($dir)->save($dir, ['jpeg_quality' => 100]);
+        }
+    }
+
+    public static function s3UploadDirect($catalog, $file_name, $temp_file_location){
+
+        $putdata = fopen($temp_file_location, "r");
+            $filename = \Yii::getAlias('@webroot') . '/uploads/'. $file_name;
+            $fp = fopen($filename, "w");
+
+        while ($data = fread($putdata, 1024))
+            fwrite($fp, $data);       
+            fclose($fp);
+            fclose($putdata);
+
+        User::photoReduce($file_name);
+
+            $s3Client = new S3Client([
+                'region' => 'us-east-2',
+                'version' => '2006-03-01',
+                'credentials' => [
+                        'key'    => env('AWS_KEY'),
+                        'secret' => env('AWS_SECRET'),
+                    ],
+            ]);
+            $temp_file_location = \Yii::getAlias('@webroot') . '/uploads/'.$file_name;
+            $result = $s3Client->putObject(
+                array(
+                    'Bucket'=>'pluzo',
+                    'Key'    => $catalog.$file_name,
+                    'SourceFile' => $temp_file_location,
+                    'ACL' => 'public-read',
+                    'ContentType' => 'image',
+                )
+            );
+            unlink($temp_file_location);
+    }
+
+
+    public static function s3UploadDirectFull($catalog, $file_name, $temp_file_location){
+
+        $putdata = fopen($temp_file_location, "r");
+            $filename = \Yii::getAlias('@webroot') . '/uploads/'. $file_name;
+            $fp = fopen($filename, "w");
+
+        while ($data = fread($putdata, 1024))
+            fwrite($fp, $data);       
+            fclose($fp);
+            fclose($putdata);
+
+            $s3Client = new S3Client([
+                'region' => 'us-east-2',
+                'version' => '2006-03-01',
+                'credentials' => [
+                        'key'    => env('AWS_KEY'),
+                        'secret' => env('AWS_SECRET'),
+                    ],
+            ]);
+            $temp_file_location = \Yii::getAlias('@webroot') . '/uploads/'.$file_name;
+            $result = $s3Client->putObject(
+                array(
+                    'Bucket'=>'pluzo',
+                    'Key'    => $catalog.$file_name,
+                    'SourceFile' => $temp_file_location,
+                    'ACL' => 'public-read',
+                    'ContentType' => 'image',
+                )
+            );
+            unlink($temp_file_location);
+    }
+
+    public static function s3delete($file_name){
+
+        $file_name = explode('/', $file_name);
+        $key = $file_name[3].'/'.$file_name[4];
+
+        $s3Client = new S3Client([
+            'region' => 'us-east-2',
+            'version' => '2006-03-01',
+            'credentials' => [
+                    'key' => env('AWS_KEY'),
+                    'secret' => env('AWS_SECRET'),
+            ],
+        ]);
+
+        $result = $s3Client->deleteObject([
+            'Bucket'=>'pluzo',
+            'Key'=> $key,
+        ]);
+
     }
 
     public static function socket($user, $data, $action){

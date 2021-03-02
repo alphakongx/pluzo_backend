@@ -71,6 +71,7 @@ class SiteController extends Controller
         $track->time_end = $_POST['time_end'];
         $track->during = $_POST['during'];
         $track->page = $_POST['page'];
+        $track->leave = 1;
         $track->save();
         return $track;
     }
@@ -141,6 +142,7 @@ class SiteController extends Controller
             $block->user_source_id = \Yii::$app->user->id;
             $block->user_target_id = $user_target_id;
             if ($block->save()) {
+                Yii::$app->cache->delete('bannedUsers'.\Yii::$app->user->id);
                 return $block;
             } else {
                 throw new \yii\web\HttpException('500','Cant block user');
@@ -165,6 +167,7 @@ class SiteController extends Controller
                 ->createCommand()
                 ->delete('ban_user', ['user_source_id' => \Yii::$app->user->id, 'user_target_id'=>$user_target_id])
                 ->execute();
+                Yii::$app->cache->delete('bannedUsers'.\Yii::$app->user->id);
                 return 'User was deleted from block list!';
         } else {
              throw new \yii\web\HttpException('500','You are not banned this user.'); 
@@ -199,8 +202,9 @@ class SiteController extends Controller
 
 
     public function actionDeleteAccount()
-    {
-        User::deleteAccount();
+    {   
+        $id = \Yii::$app->user->id;
+        User::deleteAccount($id);
         return 'Account deleted';
     }
 
@@ -475,6 +479,8 @@ class SiteController extends Controller
             ->delete('images', ['id' => $im->id])
             ->execute();
             User::setAvatar();
+
+            User::s3delete($im->path);
             return 'Image deleted!';
         } else {
             throw new \yii\web\HttpException('500','Image with id = '.$_POST['image_id'].' not exist');
@@ -534,18 +540,9 @@ class SiteController extends Controller
         }
         throw new \yii\web\HttpException('500','Code for number '.str_replace(' ', '', $_POST['phone']).' is incorrect !'); 
     }
-    
-    public function actionTest()
-    {   
-        //$time = date('Y-m-d', time());
-        //User::Sms('+12098937189', 'test message ');
-        return 'api';
-    }
 
     public function actionIndex()
     {   
-        //User::nudityFilter('test3.jpg');
-        //mail("ninzzo@softpro.ua",'aaa','bbbb');
         return 'api';
     }
 
@@ -565,16 +562,6 @@ class SiteController extends Controller
     {  
         return User::find()->where(['id'=>\Yii::$app->user->id])->one();
     }
-
-    public function actionPushTest()
-    {   
-        $user = User::find()->where(['id'=>\Yii::$app->user->id])->one();
-        $message = 'test push';
-        $data = array("action" => "test", "user_id" => \Yii::$app->user->id); 
-        PushHelper::send_push($user, $message, $data);
-        die();
-    }
-
 
     public function actionUpdatePass()
     {   
@@ -603,14 +590,8 @@ class SiteController extends Controller
     public function actionUpdate()
     {
         $user = User::find()->where(['id'=>\Yii::$app->user->id])->one();
-        //$model->scenario = 'update';
-
         if (isset($_POST['latitude'])) { $user->latitude = $_POST['latitude']; }
         if (isset($_POST['longitude'])) { $user->longitude = $_POST['longitude']; }
-        /*if (isset($_POST['phone'])) { 
-            $user->phone = str_replace(' ', '', $_POST['phone']); 
-            $user->status = User::STATUS_NOT_ACTIVE;
-        }*/
         if (isset($_POST['bio'])) { $user->bio = $_POST['bio']; }
         if (count($_POST['badges']) > 0 ) {
             \Yii::$app
@@ -674,7 +655,6 @@ class SiteController extends Controller
         }
         if (isset($_POST['first_name'])) { $user->first_name = $_POST['first_name']; }
         if (isset($_POST['last_name'])) { $user->last_name = $_POST['last_name']; }
-        //if (isset($_POST['password'])) { $user->password_hash = Yii::$app->security->generatePasswordHash($_POST['password']); }
         if( count($_FILES['images'])>0 AND $_FILES['images']['tmp_name'] ) {
             User::savePhoto((array)$_FILES['images']);
             User::setAvatar();
@@ -691,7 +671,6 @@ class SiteController extends Controller
                 $user->city = $address['city'];
             }
         }
-
         ClientSetting::update_setting(Yii::$app->request);
 
         $user->save();
@@ -736,7 +715,6 @@ class SiteController extends Controller
         $model->phone = str_replace(' ', '', $_POST['phone']);
         $model->latitude = $_POST['latitude'];
         $model->longitude = $_POST['longitude'];
-        //$model->address = $_POST['address'];
         if (isset($_POST['push_id'])) {
             $model->push_id = $_POST['push_id'];
         }
@@ -755,11 +733,9 @@ class SiteController extends Controller
         }
         $model->premium = User::NOT_PREMIUM;
         if ($model->save()) {
-            
             if( count($_FILES['images'])>0 AND $_FILES['images']['tmp_name'] ) {
                 User::savePhotoRegister((array)$_FILES['images'], $model->id);
             }
-
             //create swipe setting
             if(isset($_POST['swipe_gender'])){
                 if($_POST['swipe_gender'] == 'both'){ $gender = User::GENDER_OTHER;}
@@ -769,15 +745,12 @@ class SiteController extends Controller
                     Like::createSwipeSettingSignup($model->id, $gender, $model->latitude, $model->longitude, $model->birthday);
                 }
             }
-
             //client setting
             ClientSetting::create($model->id);
-    
             //friend pluzo team and indicator
             Friend::addPluzoTeam($model->id);            
             //send msg from Pluzo Team
             $msg = Chat::signupMsg($model->id);
-
             $token = new Token();
             $token->user_id = $model->id;
             $token->generateToken(time() + 3600 * 24 * 365);

@@ -81,7 +81,6 @@ class Indicator extends \yii\db\ActiveRecord
         }
     }
     
-
     /**
      * {@inheritdoc}
      */

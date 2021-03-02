@@ -1,7 +1,6 @@
 <?php 
 require_once __DIR__ . '/vendor/autoload.php';
 use Workerman\Worker;
-
 $users = [];
 $ws_worker = new Worker("websocket://0.0.0.0:27800");
 
@@ -14,8 +13,6 @@ $ws_worker->onMessage = function($connection, $data) use (&$users) {
                 $c->send($msg);
         }
 };
-
-
 $ws_worker->onConnect = function($connection) use (&$users)
 {
     $connection->onWebSocketConnect = function($connection) use (&$users)
@@ -28,10 +25,8 @@ $ws_worker->onConnect = function($connection) use (&$users)
         $connection->send(json_encode($messageData));
     };
 };
-
 $ws_worker->onClose = function($connection) use(&$users)
 {
-
     $user = array_search($connection, $users);
     unset($users[$user]);
 };

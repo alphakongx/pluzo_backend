@@ -16,7 +16,6 @@ class SearchUserPpl extends ActiveRecord
     const STATUS_ACTIVE = 1;
     public $password;
 
-
     /**
      * @inheritdoc
      */
@@ -56,7 +55,6 @@ class SearchUserPpl extends ActiveRecord
         return [
             'id' => 'id',
             'username' => 'username',   
-            //'token' => 'token', 
             'first_name' => 'first_name',
             'last_name' => 'last_name',  
             'phone' => 'phone',
@@ -85,9 +83,6 @@ class SearchUserPpl extends ActiveRecord
                 return Badge::getBadge($this->id);
             },
             'first_login',
-            /*'likes'=>function(){ 
-                return Like::getLike($this->id);
-            },*/
         ];
     }
 

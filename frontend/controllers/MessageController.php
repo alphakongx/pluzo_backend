@@ -8,7 +8,8 @@ use frontend\models\search\MessageSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
-
+use api\models\User;
+use api\models\Party;
 /**
  * MessageController implements the CRUD actions for Message model.
  */
@@ -52,8 +53,28 @@ class MessageController extends Controller
      */
     public function actionView($id)
     {
+        $model = new Message();
+        $chat_id = $id;
+        $chat = Party::find()->where(['chat_id'=>$chat_id])->all();
+        if (isset($chat[0]->user_id)) {
+            $user1 = $chat[0]->user_id;
+        } else {
+            $user1= NULL;
+        }
+
+        if (isset($chat[1]->user_id)) {
+            $user2 = $chat[1]->user_id;
+        } else {
+            $user2= NULL;
+        }
+        
         return $this->render('view', [
-            'model' => $this->findModel($id),
+            'model' => $model,
+            'client1' => User::find()->where(['id'=>$user1])->one(),
+            'client2' => User::find()->where(['id'=>$user2])->one(),
+            'id' => $id,
+            'message' => Message::find()->where(['chat_id'=>$chat_id])->all(),
+            'total' => Message::find()->where(['chat_id'=>$chat_id])->count(),
         ]);
     }
 

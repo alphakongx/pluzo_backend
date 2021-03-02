@@ -73,8 +73,6 @@ class SwipeSetting extends \yii\db\ActiveRecord
     public function fields()
     {
         return [
-            //'location' => 'location', 
-            //'latitude' => 'latitude', 
             'current_location' => 'current_location',
             'current_location_info' => function(){ 
                 return SwipeSetting::getCurrentLocation();

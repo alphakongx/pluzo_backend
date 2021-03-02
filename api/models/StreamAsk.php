@@ -36,20 +36,7 @@ class StreamAsk extends \yii\db\ActiveRecord
         }
     }
     
-
     public static function checkAsk($action, $channel_id, $user_id){
-        /*$check = StreamAsk::find()->where(['channel_id'=>$channel_id, 'user_id'=>$user_id])->andwhere(['in', 'status', [self::__REQUEST_SENT__,self::__REQUEST_ACCEPT__]])->one();
-        if($check){
-            if ($check->status == self::__REQUEST_SENT__) {
-                throw new \yii\web\HttpException('500','You already sent request'); 
-            }
-            if ($check->status == self::__REQUEST_ACCEPT__) {
-                throw new \yii\web\HttpException('500','User already join as broadcaster'); 
-            }    
-            if ($check->status == self::__REQUEST_REFUSED__) {
-                throw new \yii\web\HttpException('500','You were denied'); 
-            }           
-        } else {*/
             if($action == 'Stream_user_ask_join'){
                 $stream = Stream::find()->where(['channel'=>$channel_id])->one();
                 if ($stream) {
@@ -60,23 +47,13 @@ class StreamAsk extends \yii\db\ActiveRecord
             } else {
                 $host = \Yii::$app->user->id;
             }
-            /*$create = new StreamAsk();
-            $create->created_at=time();
-            $create->status = self::__REQUEST_SENT__;
-            $create->user_id = $user_id;
-            $create->channel_id = $channel_id;
-            if($create->save()){*/
                 $result = [
                     'host'=>Stream::userForApi($host),
                     'user'=>Stream::userForApi($user_id),
                     'stream'=>$channel_id,
                 ];
                 User::socket($user_id, $result, $action);
-                return $result;               
-            /*} else {
-                throw new \yii\web\HttpException('500','Error save StreamAsk'); 
-            }*/
-        
+                return $result;                       
     }
 
     public static function changeStatus($channel_id, $user_id, $status){

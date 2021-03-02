@@ -76,7 +76,6 @@ class FriendController extends Controller
         if($user->id == \Yii::$app->user->id){
             throw new \yii\web\HttpException('500','user ID can not be your ID'); 
         }
-        //return Friend::addFriendUsername($request);
         return Friend::addFriend($user->id);
     }
 

@@ -40,10 +40,7 @@ class AdvanceSearch extends Advance
      */
     public function search($params)
     {
-        $query = Advance::find();
-
-        // add conditions that should always apply here
-
+        $query = Advance::find()->select('user_id')->distinct();
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
         ]);

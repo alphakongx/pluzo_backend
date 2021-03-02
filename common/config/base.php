@@ -31,9 +31,18 @@ $config = [
             'ruleTable' => '{{%rbac_auth_rule}}'
         ],
 
-        'cache' => [
+        /*'cache' => [
             'class' => yii\caching\FileCache::class,
             'cachePath' => '@common/runtime/cache'
+        ],*/
+        'cache' => [
+            'class' => 'yii\redis\Cache',
+            //'keyPrefix' => $user_id.'_',
+            'redis' => [
+                'hostname' => 'localhost',
+                'port' => 6379,
+                'database' => 0,
+            ]
         ],
 
         'commandBus' => [
@@ -206,9 +215,9 @@ if (YII_ENV_DEV) {
         'class' => yii\gii\Module::class
     ];
 
-    $config['components']['cache'] = [
+    /*$config['components']['cache'] = [
         'class' => yii\caching\DummyCache::class
-    ];
+    ];*/
     /*$config['components']['mailer']['transport'] = [
         'class' => 'Swift_SmtpTransport',
         'host' => env('SMTP_HOST'),

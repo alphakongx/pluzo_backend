@@ -60,7 +60,6 @@ class Service extends \yii\db\ActiveRecord
             'description' => 'description',
             'discont' => 'discont',
             'count' => 'count',
-            //'type' => 'type',
         ];
     }
 

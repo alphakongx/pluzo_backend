@@ -3,7 +3,7 @@ $config = [
     'homeUrl' => Yii::getAlias('@frontendUrl'),
     'controllerNamespace' => 'frontend\controllers',
     'defaultRoute' => 'site/index',
-    'bootstrap' => ['maintenance'],
+    'bootstrap' => ['maintenance','log'],
     'modules' => [
         'user' => [
             'class' => frontend\modules\user\Module::class,
@@ -20,6 +20,15 @@ $config = [
         ]
     ],
     'components' => [
+        'log' => [
+            'traceLevel' => YII_DEBUG ? 3 : 0,
+            'targets' => [
+                [
+                    'class' => 'yii\log\FileTarget',
+                    'levels' => ['error', 'warning'],
+                ],
+            ],
+        ],
         'errorHandler' => [
             'errorAction' => 'site/error'
         ],
