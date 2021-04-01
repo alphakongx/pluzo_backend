@@ -32,7 +32,7 @@ class ClientSetting extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['user_id', 'push_new_friend', 'push_friend_request', 'push_live', 'push_message'], 'safe'],
+            [['user_id', 'push_new_friend', 'push_friend_request', 'push_live', 'push_message', 'push_likes'], 'safe'],
         ];
     }
     
@@ -53,6 +53,7 @@ class ClientSetting extends \yii\db\ActiveRecord
         $push_friend_request = $request->post('push_friend_request');
         $push_live = $request->post('push_live');
         $push_message = $request->post('push_message');
+        $push_likes = $request->post('push_likes');
         
         if (isset($push_new_friend)) {
             $setting_user->push_new_friend = $push_new_friend;
@@ -66,6 +67,9 @@ class ClientSetting extends \yii\db\ActiveRecord
         if (isset($push_message)) {
             $setting_user->push_message = $push_message;
         }
+        if (isset($push_likes)) {
+            $setting_user->push_likes = $push_likes;
+        }
         $setting_user->save();
     }
 
@@ -76,6 +80,7 @@ class ClientSetting extends \yii\db\ActiveRecord
         $setting->push_friend_request = self::__PUSH_DEFAULT__;
         $setting->push_live = self::__PUSH_DEFAULT__;
         $setting->push_message = self::__PUSH_DEFAULT__;
+        $setting->push_likes = self::__PUSH_DEFAULT__;
         $setting->save();
         return $setting;
     }
@@ -87,6 +92,7 @@ class ClientSetting extends \yii\db\ActiveRecord
             'push_friend_request',
             'push_live',
             'push_message',
+            'push_likes',
         ];
     }
 
@@ -102,6 +108,7 @@ class ClientSetting extends \yii\db\ActiveRecord
             'push_friend_request' => 'Push Friend Request',
             'push_live' => 'Push Live',
             'push_message' => 'Push Message',
+            'push_likes' => 'Push Likes',
         ];
     }
 }

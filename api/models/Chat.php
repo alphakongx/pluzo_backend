@@ -154,29 +154,31 @@ class Chat extends \yii\db\ActiveRecord
                 $ar = [
                     'id' => $value['id'],
                     'username' => $value['username'],
-                    'phone' => $value['phone'],
+                    
                     'image' => $value['image'],
                     'gender' => $value['gender'],
-                    'birthday' => $value['birthday'],
+                    
                     'age'=>User::getAge($value['birthday']),
                     'status' => $value['status'],
                     'first_name' => $value['first_name'],
                     'last_name' => $value['last_name'],
-                    'latitude' => $value['latitude'],
-                    'longitude' => $value['longitude'],
+                    'last_activity'=>$value['last_activity'],
+                    
                     'address' => $value['address'],
                     'city' => $value['city'],
                     'state' => $value['state'],
-                    'last_activity' => $value['last_activity'],
+                    
                     'premium' => User::checkPremium($value['id']),
-                    'first_login' => $value['first_login'],
+                    
                     'text' => $value['text'],
                     'type' => $value['type'],
                     'chat_id' => $value['chat_id'],
                     'created_at' => $value['created_at'],
                     'badges'=>Badge::getBadge($value['id']),
-                    'friends'=>User::friendCount($value['id']),
+                    
                     'partner_model' => $partner_model,
+                    'hide_location'=>$value['hide_location'],
+                    'hide_city'=>$value['hide_city'],
                 ];
                 array_push($final, $ar);
             } else {

@@ -37,11 +37,13 @@ $this->title = 'Users';
         'filterModel' => $searchModel,
         'pjax' => true,
         'columns' => [
+            
             [
                 'attribute'=>'id',
                 'contentOptions' => ['style' => 'width:80px;'],
                 'format' => 'raw',
                 'value' => function ($data) {
+                    return $data->id;
                     //total time on app
                     $t_t = 0;
                     $total_time = Analit::find()->where(['user_id'=>$data->id])->all();
@@ -129,6 +131,19 @@ $this->title = 'Users';
                 'contentOptions' => ['style' => 'width:10px;'],
             ],
             [
+                'attribute'=>'likes',
+                'contentOptions' => ['style' => 'min-width:80px;'],
+            ],
+            [
+                'attribute'=>'dis',
+                'contentOptions' => ['style' => 'minwidth:80px;'],
+            ],
+            [
+                'attribute'=>'rait',
+                'filter' => false,
+                'contentOptions' => ['style' => 'minwidth:80px;'],
+            ],
+            [
                 'attribute'=>'count_friend',
                 'contentOptions' => ['style' => 'width:10px;'],
             ],
@@ -148,8 +163,7 @@ $this->title = 'Users';
             [
                 'attribute' => 'Track',
                 'value' => function ($data) {
-                    $find = Analit::find()->where(['user_id'=>$data->id])->count();
-                    if ($find) {
+                    if ($data->analit > 0) {
                         return Html::a('<i class="fas fa-chart-pie"></i>', Url::to(['analit/index', 'id' => $data->id]));
                     } else {
                         return '';
@@ -197,7 +211,7 @@ $this->title = 'Users';
     <tr><th>Total time on app</th><td id="q3"></td></tr>
     <tr><th># of friends</th><td id="q4"></td></tr>
     <tr><th># of lives</th><td id="q5"></td></tr>
-    <tr><th>Ratio</th><td id="q6"></td></tr>
+    <tr><th>Sent like/dislike/total</th><td id="q6"></td></tr>
     <tr><th># of conversations</th><td id="q7"></td></tr>
 </tbody></table>
             </div>

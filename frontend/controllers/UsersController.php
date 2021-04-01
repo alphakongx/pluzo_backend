@@ -43,7 +43,7 @@ class UsersController extends Controller
     public function actionIndex()
     {   
 
-        $users = Client::find()->where(['status'=>1])->all();
+        /*$users = Client::find()->where(['status'=>1])->all();
         foreach ($users as $key => $value) {
             $premium = Advance::find()
                 ->where(['user_id'=>$value['id'], 'status'=>Advance::ITEM_AVAILABILITY, 'type'=>Advance::PLUZO_PLUS])
@@ -58,7 +58,7 @@ class UsersController extends Controller
                     $us->premium = 0;
                 }
                 $us->save();
-            }
+            }*/
         
         
 

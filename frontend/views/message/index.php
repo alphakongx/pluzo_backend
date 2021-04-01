@@ -10,7 +10,13 @@ use api\models\Message;
 /* @var $searchModel frontend\models\search\MessageSearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
 
-$this->title = 'Messages';
+if (isset($_GET['MessageSearch']['find_user'])) {
+           $idu = $_GET['MessageSearch']['find_user'];
+           $this->title = 'Messages for user# '.$idu;
+        } else {
+ $this->title = 'Messages';           
+        }
+
 ?>
 <script src='https://kit.fontawesome.com/a076d05399.js' crossorigin='anonymous'></script>
 <script type="text/javascript">
@@ -23,7 +29,11 @@ $this->title = 'Messages';
     }
 </script>
 
-<p> 
+    <p>
+        <a href="/message/users" class="btn btn-info">Back</a>
+        </p>
+
+<!--<p> 
     <?php
     $user = User::find()->where(['status'=>1])->all();
 ?>
@@ -42,7 +52,7 @@ $this->title = 'Messages';
     }
     ?>
     </select>
-</p>
+</p>-->
 
 
 <div class="message-index">
@@ -80,7 +90,9 @@ $this->title = 'Messages';
                             }
                             
                             $user = User::find()->where(['id'=>$chat[0]->user_id])->one();
-                            $user1 = '<img class="img-circle" width="30" height="30" src="'.$user->image.'" alt="'.$user->username.'">&nbsp;'.$user->username.'&nbsp; C_C = <span class="badge badge-secondary">'.$character_count.'</span>&nbsp; C_A = <span class="badge badge-warning">'.$character_avarage.'</span>&nbsp; T_M = <span class="badge badge-info">'.$total_messages.'</span>';
+                            //$user1 = '<img class="img-circle" width="30" height="30" src="'.$user->image.'" alt="'.$user->username.'">&nbsp;'.$user->username.'&nbsp; <b>Сharacter count</b> = <span class="badge badge-secondary">'.$character_count.'</span>&nbsp; <b>Character avarage</b> = <span class="badge badge-warning">'.$character_avarage.'</span>&nbsp; <b>Total messages</b> = <span class="badge badge-info">'.$total_messages.'</span>';
+
+                            $user1 = '<img class="img-circle" width="30" height="30" src="'.$user->image.'" alt="'.$user->username.'">&nbsp;'.$user->username.'&nbsp;';
                         }
                     } else {
                         $user1 = '';
@@ -108,7 +120,8 @@ $this->title = 'Messages';
 
                             $user = User::find()->where(['id'=>$chat[1]->user_id])->one();
                             if (isset($user->image)) {
-                                $user2 = '<img class="img-circle" width="30" height="30" src="'.$user->image.'" alt="'.$user->username.'">&nbsp;'.$user->username.'&nbsp; C_C = <span class="badge badge-secondary">'.$character_count.'</span>&nbsp; C_A = <span class="badge badge-warning">'.$character_avarage.'</span>&nbsp; T_M = <span class="badge badge-info">'.$total_messages.'</span>';
+                                //$user2 = '<img class="img-circle" width="30" height="30" src="'.$user->image.'" alt="'.$user->username.'">&nbsp;'.$user->username.'&nbsp; <b>Сharacter count</b> = <span class="badge badge-secondary">'.$character_count.'</span>&nbsp; <b>Character avarage</b> = <span class="badge badge-warning">'.$character_avarage.'</span>&nbsp; <b>Total messages</b> = <span class="badge badge-info">'.$total_messages.'</span>';
+                                $user2 = '<img class="img-circle" width="30" height="30" src="'.$user->image.'" alt="'.$user->username.'">&nbsp;'.$user->username.'&nbsp;';
                             } else {
                                 $user2 = 'Deleted_user';
                             }
@@ -119,7 +132,7 @@ $this->title = 'Messages';
                     }
                     
                     $url = 'Chat #'.$data->chat_id.' ';
-                    return Html::a($url, Url::to(['view', 'id' => $data->chat_id])).'('.$user1.'&nbsp;&nbsp;&nbsp;<i class="fas fa-sync"></i>&nbsp;&nbsp;&nbsp;'.$user2.')';
+                    return Html::a($url, Url::to(['view', 'id' => $data->chat_id])).'<br>'.$user1.'&nbsp;&nbsp;&nbsp;<i class="fas fa-sync"></i>&nbsp;&nbsp;&nbsp;'.$user2.'';
                 },
                 'format' => 'raw',
             ],

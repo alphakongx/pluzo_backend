@@ -31,7 +31,8 @@ class User extends ActiveRecord
     const STATUS_BANNED = 3;
     const NOT_PREMIUM = 0;
     const PREMIUM = 1;
-    const WEB_CLIENT_ADDRESS = 'ws://3.134.208.235:27800?user=0';
+   // const WEB_CLIENT_ADDRESS = 'ws://3.134.208.235:27800?user=0';
+    const WEB_CLIENT_ADDRESS = 'ws://3.18.139.193:27801?user=0';
     const TWILIO_API_KEY1 = 'AC85e9e328e8bce93e332161d9342a9b2e';
     const TWILIO_API_KEY2 = '255041c5e9f5ee836fd1d73e46e5d464';
     const TWILIO_NUMBER_FROM = '+12056240327';
@@ -112,8 +113,7 @@ class User extends ActiveRecord
             ['phone', 'unique', 'targetClass' => '\common\models\Client', 'message' => 'This phone number has already been taken.', 'on'=>'update'],
             [['username', 'email', 'phone'], 'required', 'on'=>'create'],
             ['status', 'integer'],
-            [['password','gender', 'first_name', 'last_name', 'phone', 'username', 'email', 'state', 'city', 'first_login'], 'safe'],
-            
+            [['password','gender', 'first_name', 'last_name', 'phone', 'username', 'email', 'state', 'city', 'first_login', 'hide_location', 'hide_city'], 'safe'],
         ];
     }
            
@@ -126,29 +126,31 @@ class User extends ActiveRecord
             'token' => function(){ if (Yii::$app->controller->action->id == 'get-user-info') { return ''; } else { return $this->token; } },
             'first_name' => 'first_name',
             'last_name' => 'last_name',  
-            'phone' => 'phone',
-            'status' => 'status',
+            'phone' => function(){ if (Yii::$app->controller->action->id == 'get-user-info') { return ''; } else { return $this->phone; } },
+            'status' => function(){ if (Yii::$app->controller->action->id == 'get-user-info') { return ''; } else { return $this->status; } },
             'gender'=>'gender',
             'image'=>'image',
-            'birthday'=>'birthday',
+            'birthday' => function(){ if (Yii::$app->controller->action->id == 'get-user-info') { return ''; } else { return $this->birthday; } }, 
             'age'=>function(){ 
                 return User::getAge($this->birthday);
-            },  
-            'latitude'=>'latitude',
-            'longitude'=>'longitude',
+            }, 
+            'latitude' => function(){ if (Yii::$app->controller->action->id == 'get-user-info') { return ''; } else { return $this->latitude; } }, 
+            'longitude' => function(){ if (Yii::$app->controller->action->id == 'get-user-info') { return ''; } else { return $this->longitude; } },
             'address'=>'address',
             'city'=>'city',
             'state'=>'state',
-            'last_activity'=>'last_activity',
             'premium'=>function(){ 
                 return User::checkPremium($this->id);
             },
             'push_id'=>'push_id',
             'device'=>'device',
             'bio'=>'bio',
+            'last_activity'=>'last_activity',
             'images'=>'images',
             'friends'=>function(){ 
-                return User::friendCount($this->id);
+                if (Yii::$app->controller->action->id == 'get-user-info') { return '';} else {
+                    return User::friendCount($this->id);
+                }
             },
             'badges'=>function(){ 
                 return Badge::getBadge($this->id);
@@ -162,11 +164,14 @@ class User extends ActiveRecord
             'user_setting'=>function(){ 
                     return ClientSetting::getSetting($this->id);
             },
-            'first_login',
+            'first_login' => function(){ if (Yii::$app->controller->action->id == 'get-user-info') { return ''; } else { return $this->first_login; } },
             
             'premium_info'=>function(){ 
                     return User::getPremiumInfo();
             },
+            'hide_location'=>'hide_location',
+            'hide_city'=>'hide_city',
+            
         ];
     }
 
@@ -712,33 +717,35 @@ class User extends ActiveRecord
             $ar = [
                 'id'=>$value['id'],
                 'username'=>$value['username'],
-                'phone'=>$value['phone'],
+                //'phone'=>$value['phone'],
                 'image'=>$value['image'],
                 'gender'=>$value['gender'],
-                'birthday'=>$value['birthday'],
+                //'birthday'=>$value['birthday'],
                 'age'=>User::getAge($value['birthday']),
                 'status'=>$value['status'],
                 'first_name'=>$value['first_name'],
                 'last_name'=>$value['last_name'],
-                'latitude'=>$value['latitude'],
-                'longitude'=>$value['longitude'],
+                'last_activity'=>$value['last_activity'],
+                //'latitude'=>$value['latitude'],
+                //'longitude'=>$value['longitude'],
                 'address'=>$value['address'],
                 'city'=>$value['city'],
                 'state'=>$value['state'],
-                'last_activity'=>$value['last_activity'],
+                //'last_activity'=>$value['last_activity'],
                 'premium'=>User::checkPremium($value['id']),
                 'images'=>$result_images,
-                'friends'=>User::friendCount($value['id']),
+                //'friends'=>User::friendCount($value['id']),
                 'badges'=>Badge::getBadge($value['id']),
-                'first_login'=>$value['first_login'],
+                //'first_login'=>$value['first_login'],
             ];
             array_push($users, $ar);
         }
         return $users;
     }
 
+
     public function userFields(){
-        return '`client`.`id`, `client`.`username`, `client`.`phone`, `client`.`image`, `client`.`gender`, `client`.`birthday`, `client`.`status`, `client`.`first_name`, `client`.`last_name`, `client`.`latitude`, `client`.`longitude`, `client`.`address`, `client`.`city`, `client`.`state`, `client`.`last_activity`, `client`.`premium`, `client`.`first_login`';
+        return '`client`.`id`, `client`.`username`, `client`.`image`, `client`.`gender`, `client`.`birthday`, `client`.`status`, `client`.`first_name`, `client`.`last_name`, `client`.`address`, `client`.`city`, `client`.`state`, `client`.`premium`, `client`.`last_activity`, `client`.`hide_location`, `client`.`hide_city`';
     }
 
     public static function getPhoto($user_id)
@@ -845,6 +852,17 @@ class User extends ActiveRecord
             'phone'=>$phone,
             'message' => $message,
         ]));      
+    }
+
+    public static function cutPhone($phone){
+        $phone = str_replace(' ', '', $phone);
+        $phone = str_replace('+', '', $phone);
+        $phone = str_replace('-', '', $phone);
+        $phone = str_replace('_', '', $phone);
+        $phone = str_replace('(', '', $phone);
+        $phone = str_replace(')', '', $phone);
+        $phone = '+'.$phone;
+        return $phone;
     }
 
     public static function s3Upload($catalog, $file_name, $temp_file_location){
@@ -959,20 +977,19 @@ class User extends ActiveRecord
 
     }
 
-    public static function socket($user, $data, $action){
-
+    public static function socket($user, $data, $action){ 
         $client = new WEBCLIENT(self::WEB_CLIENT_ADDRESS);
 
         $messageData = [
             'user'=>(int)$user,
             'action'=>$action,
             'data'=>json_encode($data, true)
-        ];
+        ]; 
 
-        $message = json_encode($messageData); 
+        $message = json_encode($messageData);  
         $client->send($message);
         $client->close();
-
+         
     }
 }   
 
