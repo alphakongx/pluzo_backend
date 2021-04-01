@@ -3,6 +3,7 @@
 namespace api\models;
 
 use Yii;
+use api\models\User;
 
 /**
  * This is the model class for table "images".
@@ -51,6 +52,10 @@ class Badge extends \yii\db\ActiveRecord
         if(!$badge_id){
             throw new \yii\web\HttpException('500','badge_id cannot be blank.'); 
         }
+        $premium = User::checkPremium(\Yii::$app->user->id);
+        if ($badge_id > 6 AND $premium == 0) {
+            throw new \yii\web\HttpException('500','badge > 6 only for pluzo+'); 
+        }
 
         $badge = Badge::find()->where(['badge_id'=>$badge_id, 'user_id'=>\Yii::$app->user->id])->one();
         if($badge){
@@ -67,7 +72,13 @@ class Badge extends \yii\db\ActiveRecord
     { 
         $badge = Badge::find()->where(['user_id'=>$id])->all();
         $ar = [];
+        $premium = User::checkPremium($id);
         foreach ($badge as $key => $value) {
+            if ($value['badge_id'] > 6) {
+                if ($premium == 0) {
+                    continue;
+                }
+            }
             array_push($ar, $value['badge_id']);
         }
         return $ar;

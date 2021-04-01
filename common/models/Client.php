@@ -49,6 +49,14 @@ class Client extends ActiveRecord implements IdentityInterface
     const EVENT_AFTER_SIGNUP = 'afterSignup';
     const EVENT_AFTER_LOGIN = 'afterLogin';
 
+    public $likes;
+    public $dis;
+    public $count_friend;
+    public $count_swipes;
+    public $rait;
+    public $analit;
+    
+
     /**
      * @inheritdoc
      */
@@ -58,7 +66,7 @@ class Client extends ActiveRecord implements IdentityInterface
     }
 
 
-    public function getCount_friend() {
+    /*public function getCount_friend() {
 
         //friends
         $connection = Yii::$app->getDb();
@@ -69,12 +77,33 @@ class Client extends ActiveRecord implements IdentityInterface
         $result1 = $command->queryAll();
         
         return $result1[0]['count_friend'];
-    }
+    }*/
 
-    public function getCount_swipes() {
+    /*public function getCount_swipes() {
         $like = Like::find()->where(['user_source_id'=>$this->id])->count();
         return $like;
-    }
+    }*/
+
+    /*public function getLikes() {
+        $like = Like::find()->where(['user_target_id'=>$this->id])->andwhere(['IN','like',[1,2]])->count();
+        return $like;
+    }*/
+
+    /*public function getDis() {
+        $like = Like::find()->where(['user_target_id'=>$this->id, 'like'=>0])->count();
+        return $like;
+    }*/
+
+    /*public function getRait() {
+        $like = Like::find()->where(['user_target_id'=>$this->id])->andwhere(['IN','like',[1,2]])->count();
+        $dis = Like::find()->where(['user_target_id'=>$this->id, 'like'=>0])->count();
+        $total = $like+$dis;
+        if ($total > 0) {
+            return round($like/$total, 2);
+        } else {
+            return 0;
+        }
+    }*/
 
     /**
      * @inheritdoc
@@ -254,6 +283,10 @@ class Client extends ActiveRecord implements IdentityInterface
             'address'=>'Location',
             'id'=>'ID',
             'premium'=>'Pluzo+',
+            'likes'=>'Likes',
+            'dis'=>'Dislikes',
+            'rait'=>'Rating',
+            'analit'=>'Track',
         ];
     }
 

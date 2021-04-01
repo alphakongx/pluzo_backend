@@ -23,17 +23,13 @@ class UserSwipe extends ActiveRecord
             'id' => 'id',
             'username' => 'username',   
             'first_name' => 'first_name',
-            'last_name' => 'last_name',  
-            'phone' => 'phone',
-            'status' => 'status',
+            'last_name' => 'last_name', 
             'gender'=>'gender',
             'image'=>'image',
-            'birthday'=>'birthday',
             'age'=>function(){ 
                 return User::getAge($this->birthday);
             },  
-            'latitude'=>'latitude',
-            'longitude'=>'longitude',
+            
             'address'=>'address',
             'city'=>'city',
             'state'=>'state',
@@ -43,16 +39,15 @@ class UserSwipe extends ActiveRecord
             },            
             'bio'=>'bio',
             'images'=>'images',
-            'friends'=>function(){ 
-                return User::friendCount($this->id);
-            },
+            
             'badges'=>function(){ 
                 return Badge::getBadge($this->id);
             },
             'likes'=>function(){ 
                 return Like::getLike($this->id);
             },
-            'first_login',
+            'hide_location'=>'hide_location',
+            'hide_city'=>'hide_city',
         ];
     }
 

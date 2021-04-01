@@ -10,6 +10,8 @@ use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 use api\models\User;
 use api\models\Party;
+use common\models\Client;
+use frontend\models\search\UserSearch;
 /**
  * MessageController implements the CRUD actions for Message model.
  */
@@ -28,6 +30,17 @@ class MessageController extends Controller
                 ],
             ],
         ];
+    }
+
+    public function actionUsers()
+    {  
+        $searchModel = new UserSearch();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        return $this->render('users', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+        ]);
     }
 
     /**

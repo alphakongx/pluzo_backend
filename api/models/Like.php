@@ -14,6 +14,7 @@ use api\models\Friend;
 use api\models\Stream;
 use api\models\Advance;
 use api\models\LikeOpt;
+use api\components\PushHelper;
 
 /**
  * This is the model class for table "like".
@@ -407,6 +408,11 @@ class Like extends \yii\db\ActiveRecord
         $socket = [
             'user'=>$target_result,
         ];
+
+
+        //if 3 likes - send push
+        self::sendLikePush($user_target_id);
+
         User::socket(0, $socket, 'User_update');
         return [
             'like_match'=>$match,
@@ -415,6 +421,20 @@ class Like extends \yii\db\ActiveRecord
             'like'=>$like
         ];
     }
+
+    public static function sendLikePush($user_target_id){
+        $user_target = User::find()->where(['id'=>$user_target_id])->one();
+        if ($user_target->likes >= 3 ) {
+            $message = 'You have 3 new likes! Tap to see who.';
+            $data = array("action" => "likes");
+            //PushHelper::send_push($user_target, $message, $data);
+            $user_target->likes == 0;
+        } else {
+            $user_target->likes = $user_target->likes + 1;
+        }
+        $user_target->save();
+    }
+    
 
     public static function checkLike($user_id){
         $check = Like::find()->where(['user_source_id'=>$user_id, 'user_target_id'=>\Yii::$app->user->id])

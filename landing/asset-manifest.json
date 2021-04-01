@@ -1,29 +1,34 @@
 {
   "files": {
-    "main.css": "/static/css/main.0195cddf.chunk.css",
-    "main.js": "/static/js/main.df5e0434.chunk.js",
-    "main.js.map": "/static/js/main.df5e0434.chunk.js.map",
+    "main.css": "/static/css/main.65172a15.chunk.css",
+    "main.js": "/static/js/main.972bd0f5.chunk.js",
+    "main.js.map": "/static/js/main.972bd0f5.chunk.js.map",
     "runtime-main.js": "/static/js/runtime-main.c35d3a5d.js",
     "runtime-main.js.map": "/static/js/runtime-main.c35d3a5d.js.map",
     "static/css/2.ddfacf9b.chunk.css": "/static/css/2.ddfacf9b.chunk.css",
-    "static/js/2.23938fec.chunk.js": "/static/js/2.23938fec.chunk.js",
-    "static/js/2.23938fec.chunk.js.map": "/static/js/2.23938fec.chunk.js.map",
+    "static/js/2.8587a1a2.chunk.js": "/static/js/2.8587a1a2.chunk.js",
+    "static/js/2.8587a1a2.chunk.js.map": "/static/js/2.8587a1a2.chunk.js.map",
     "index.html": "/index.html",
-    "precache-manifest.1af27fe111409a8d69732c914334bd6f.js": "/precache-manifest.1af27fe111409a8d69732c914334bd6f.js",
+    "precache-manifest.d947a19d282b2351cbe8b4a14d717e62.js": "/precache-manifest.d947a19d282b2351cbe8b4a14d717e62.js",
     "service-worker.js": "/service-worker.js",
     "static/css/2.ddfacf9b.chunk.css.map": "/static/css/2.ddfacf9b.chunk.css.map",
-    "static/css/main.0195cddf.chunk.css.map": "/static/css/main.0195cddf.chunk.css.map",
-    "static/js/2.23938fec.chunk.js.LICENSE.txt": "/static/js/2.23938fec.chunk.js.LICENSE.txt",
-    "static/media/style.css": "/static/media/banner.8fe2c3e7.png",
+    "static/css/main.65172a15.chunk.css.map": "/static/css/main.65172a15.chunk.css.map",
+    "static/js/2.8587a1a2.chunk.js.LICENSE.txt": "/static/js/2.8587a1a2.chunk.js.LICENSE.txt",
+    "static/media/style.css": "/static/media/website_banner.86a29f39.png",
     "static/media/font-awesome.min.css": "/static/media/fontawesome-webfont.fee66e71.woff",
+    "static/media/footer-icon-app.svg": "/static/media/footer-icon-app.93870534.svg",
+    "static/media/footer-icon-google.svg": "/static/media/footer-icon-google.367b817f.svg",
     "static/media/friends.png": "/static/media/friends.511f559b.png",
-    "static/media/logo.png": "/static/media/logo.8be674da.png"
+    "static/media/icon-app.svg": "/static/media/icon-app.3a62ebde.svg",
+    "static/media/icon-google.svg": "/static/media/icon-google.9456f116.svg",
+    "static/media/logo.png": "/static/media/logo.8be674da.png",
+    "static/media/mobiles-secondary.png": "/static/media/mobiles-secondary.710ae75f.png"
   },
   "entrypoints": [
     "static/js/runtime-main.c35d3a5d.js",
     "static/css/2.ddfacf9b.chunk.css",
-    "static/js/2.23938fec.chunk.js",
-    "static/css/main.0195cddf.chunk.css",
-    "static/js/main.df5e0434.chunk.js"
+    "static/js/2.8587a1a2.chunk.js",
+    "static/css/main.65172a15.chunk.css",
+    "static/js/main.972bd0f5.chunk.js"
   ]
 }

@@ -57,32 +57,31 @@ class UserGetLike extends ActiveRecord
             'username' => 'username',  
             'first_name' => 'first_name',
             'last_name' => 'last_name',  
-            'phone' => 'phone',
-            'status' => 'status',
+            //'phone' => 'phone',
+            //'status' => 'status',
             'gender'=>'gender',
             'avatar'=>'image',
             'birthday'=>'birthday',
             'age'=>function(){ 
                 return User::getAge($this->birthday);
             },  
-            'latitude'=>'latitude',
-            'longitude'=>'longitude',
+           
             'address'=>'address',
             'city'=>'city',
             'state'=>'state',
-            'last_activity'=>'last_activity',
             'premium'=>function(){ 
                 return User::checkPremium($this->id);
             },
             'bio'=>'bio',
+            'last_activity'=>'last_activity',
             'images'=>'images',
-            'friends'=>function(){ 
-                return User::friendCount($this->id);
-            },
+           
             'badges'=>function(){ 
                 return Badge::getBadge($this->id);
             },
-            'first_login',
+            //'first_login',
+            'hide_location'=>'hide_location',
+            'hide_city'=>'hide_city',
 
         ];
     }

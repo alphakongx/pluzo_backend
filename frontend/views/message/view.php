@@ -2,17 +2,41 @@
 
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
+use api\models\Message;
 
 $this->title = 'Chat with user #' . $client1['id'] . ' and user #' . $client2['id'];
 
 ?>
-<div class="clearfix" style="margin-bottom: 10px">
-                <a href="/users/index" class="btnindex btn-sm btn-info float-left">Back</a>
-              </div>
 <div class="message-update">
+<p>
+  <a href="/message/users" class="btn btn-info">Back</a>
+</p>
 
 
     <div class="message-form">
+<?php
+$character_count = 0;
+$character_avarage = 0;
+$total_messages = 0;
+$id = $_GET['id'];
+
+$message1 = Message::find()->where(['type'=>'message', 'chat_id'=>$id])->all();
+                            foreach ($message1 as $key => $value) {
+                                if (strlen($value['text']) > 0){
+                                    $character_count = $character_count + strlen($value['text']);
+                                    $total_messages++;
+                                }
+                            }
+                            if($character_count > 0){
+                                $character_avarage = round($character_count/$total_messages, 2);
+                            }
+
+echo '<b>Сharacter count</b> = <span class="badge badge-secondary">'.$character_count.'</span>
+<br><b>Character avarage</b> = <span class="badge badge-warning">'.$character_avarage.'</span>
+<br><b>Total messages</b> = <span class="badge badge-info">'.$total_messages.'</span>';
+?>
+
+
 <div class="card direct-chat direct-chat-primary">
               <div class="card-header ui-sortable-handle" style="cursor: move;">
                 <h3 class="card-title">Chat</h3>

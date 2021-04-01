@@ -58,33 +58,31 @@ class UserMsg extends ActiveRecord
             'name' => 'username',  
             'first_name' => 'first_name',
             'last_name' => 'last_name',  
-            'phone' => 'phone',
-            'status' => 'status',
+            //'phone' => 'phone',
+            //'status' => 'status',
             'gender'=>'gender',
             'avatar'=>'image',
-            'birthday'=>'birthday',
             'age'=>function(){ 
                 return User::getAge($this->birthday);
             },  
             'image'=>'image',
-            'latitude'=>'latitude',
-            'longitude'=>'longitude',
+            'last_activity'=>'last_activity',
             'address'=>'address',
             'city'=>'city',
             'state'=>'state',
-            'last_activity'=>'last_activity',
+           
             'premium'=>function(){ 
                 return User::checkPremium($this->id);
             },
             'bio'=>'bio',
             'images'=>'images',
-            'friends'=>function(){ 
-                return User::friendCount($this->id);
-            },
+            
             'badges'=>function(){ 
                 return Badge::getBadge($this->id);
             },
-            'first_login',
+            //'first_login',
+            'hide_location'=>'hide_location',
+            'hide_city'=>'hide_city',
 
         ];
     }

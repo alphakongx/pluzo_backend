@@ -26,7 +26,12 @@ class Stream extends \yii\db\ActiveRecord
     const REPORT_USER = 2;
     const INVITE_ONLY = 1;
     const AGORA_KEY = 'YmVkZDBjNmU0NmM5NGY2NmIzZTJmNWRjMzI0ZjlhYzc6NDFmZWZlNDQyZWJmNDlhZjg3OGJmZGZkMWNlMjQyMmY=';
-    const AGORA_CHANNEL = '8fb9cd7b72694baa9a048ee3dc4633d7';
+  //const AGORA_KEY = 'YWQ0YjM1OGFkMzkyNDU3OWJkNmYwYTM0ZTZkOGY5MDg3NDEzNDA4NWUwN2M0MDFiYTM5NzU4NGUzZGNiNjYwYg==';
+
+
+
+   const AGORA_CHANNEL = '8fb9cd7b72694baa9a048ee3dc4633d7';
+ 
 
     /**
      * {@inheritdoc}
@@ -140,7 +145,7 @@ class Stream extends \yii\db\ActiveRecord
         return false;
     }
 
-    public static function getStream(){
+       public static function getStream(){
         $agora_stream = Stream::getChannelList();
         $friends_stream = '';
         $all_stream = '';
@@ -303,7 +308,6 @@ class Stream extends \yii\db\ActiveRecord
             'all_stream' => $all_stream
         ];
     }
-
     public static function getChannelList(){
 
         $headers = array(
@@ -368,28 +372,23 @@ class Stream extends \yii\db\ActiveRecord
                     'username',    
                     'first_name',
                     'last_name',  
-                    'phone',
+                    //'phone',
                     'status',
                     'gender',
                     'image',
-                    'birthday',
                     'age'=>function($user){ 
                         return User::getAge($user->birthday);
                     },
-                    'latitude',
-                    'longitude',
                     'address',
                     'city',
                     'state',
-                    'last_activity',
                     'bio',
+                    'last_activity'=>'last_activity',
                     'images',
                     'premium'=>function($user){ 
                         return User::checkPremium($user->id);
                     },
-                    'friends'=>function($user){ 
-                        return User::friendCount($user->id);
-                    },
+                    
                     'badges'=>function($user){ 
                         return Badge::getBadge($user->id);
                     },
@@ -402,10 +401,12 @@ class Stream extends \yii\db\ActiveRecord
                     'user_setting'=>function($user){ 
                         return ClientSetting::getSetting($user->id);
                     },
-                    'first_login',
+                    //'first_login',
                     'premium_info'=>function(){ 
                         return User::getPremiumInfo();
                     },
+                    'hide_location',
+                    'hide_city',
                 ],
             ]);    
         return $user;

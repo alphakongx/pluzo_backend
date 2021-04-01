@@ -90,25 +90,26 @@ class Friend extends \yii\db\ActiveRecord
             $ar = [
                 'id'=>$value['id'],
                 'username'=>$value['username'],
-                'phone'=>$value['phone'],
                 'image'=>$value['image'],
                 'gender'=>$value['gender'],
-                'birthday'=>$value['birthday'],
+                
                 'age'=>User::getAge($value['birthday']),
-                'status'=>$value['status'],
+                
                 'first_name'=>$value['first_name'],
                 'last_name'=>$value['last_name'],
-                'latitude'=>$value['latitude'],
-                'longitude'=>$value['longitude'],
+                'last_activity'=>$value['last_activity'],
+                
                 'address'=>$value['address'],
                 'city'=>$value['city'],
                 'state'=>$value['state'],
-                'last_activity'=>$value['last_activity'],
+                
                 'premium'=>User::checkPremium($value['id']),
                 'images'=>$result_images,
-                'friends'=>User::friendCount($value['id']),
+               
                 'badges'=>Badge::getBadge($value['id']),
-                'first_login'=>$value['first_login'],
+                'hide_location'=>$value['hide_location'],
+                'hide_city'=>$value['hide_city'],
+                //'first_login'=>$value['first_login'],
             ];
             array_push($friend, $ar);
         }
@@ -548,26 +549,22 @@ class Friend extends \yii\db\ActiveRecord
             $ar = [
                 'id'=>$value['id'],
                 'username'=>$value['username'],
-                'phone'=>$value['phone'],
                 'image'=>$value['image'],
                 'gender'=>$value['gender'],
-                'birthday'=>$value['birthday'],
                 'age'=>User::getAge($value['birthday']),
                 'status'=>$value['status'],
                 'first_name'=>$value['first_name'],
                 'last_name'=>$value['last_name'],
-                'latitude'=>$value['latitude'],
-                'longitude'=>$value['longitude'],
                 'address'=>$value['address'],
                 'city'=>$value['city'],
                 'state'=>$value['state'],
-                'last_activity'=>$value['last_activity'],
                 'premium'=>User::checkPremium($value['id']),
                 'images'=>$result_images,
-                'friends'=>User::friendCount($value['id']),
                 'badges'=>Badge::getBadge($value['id']),
                 'flag'=>Friend::flag($value['id']),
-                'first_login'=>$value['first_login'],
+                'last_activity'=>$value['last_activity'],
+                'hide_location'=>$value['hide_location'],
+                'hide_city'=>$value['hide_city'],
             ];
             array_push($friend, $ar);
             if ($blue_dote_id == $value['id'] AND $pluzo_team_used == 0 AND $flag_team == 1) {

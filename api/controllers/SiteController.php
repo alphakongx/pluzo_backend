@@ -101,7 +101,8 @@ class SiteController extends Controller
         return [
             'all'=>[
                 'friends'=>Friend::getSearch($_POST['search']),
-                'people'=>SearchUser::getSearch($_POST['search']),
+                //'people'=>SearchUser::getSearch($_POST['search']),
+                'people'=>[],
                 'chat'=>Chat::getSearch($_POST['search']),
                 'live'=>Stream::getSearch($_POST['search']),
             ],
@@ -281,8 +282,9 @@ class SiteController extends Controller
         if(!$_POST['phone']){
             throw new \yii\web\HttpException('500','phone cannot be blank.'); 
         }
+        $phone = User::cutPhone($_POST['phone']);
         //check unique
-        $check = User::find()->where(['phone'=>str_replace(' ', '', $_POST['phone'])])->one();
+        $check = User::find()->where(['phone'=>$phone])->one();
         if($check){
             //throw new \yii\web\HttpException('500','This phone number is already in use.'); 
         }
@@ -292,11 +294,11 @@ class SiteController extends Controller
         $code->type = 'phone';
         $digits = 4;
         $code->code = rand(pow(10, $digits-1), pow(10, $digits)-1);
-        $code->data = str_replace(' ', '', $_POST['phone']);
+        $code->data = $phone;
         if($code->save()){
             $message = 'Your Pluzo code is: '.$code->code;
             User::Sms($code->data, $message);
-            return 'Update phone code sent to '.str_replace(' ', '', $_POST['phone']).'!';
+            return 'Update phone code sent to '.$phone.'!';
         }
         throw new \yii\web\HttpException('500','Error');
     }
@@ -330,7 +332,8 @@ class SiteController extends Controller
         if(!$_POST['phone']){
             throw new \yii\web\HttpException('500','phone cannot be blank.'); 
         }
-        $user = User::find()->where(['phone'=>str_replace(' ', '', $_POST['phone'])])->one();
+        $phone = User::cutPhone($_POST['phone']);
+        $user = User::find()->where(['phone'=>$phone])->one();
         if ($user) {
             //send sms
             $digits = 4;
@@ -339,8 +342,8 @@ class SiteController extends Controller
             if ($user->save()) {
                 $message = 'Your Pluzo code is: '.$user->forgot_sms_code;
 
-                User::Sms($_POST['phone'], $message);
-                return 'Code sent to '.str_replace(' ', '', $_POST['phone']).'!';
+                User::Sms($phone, $message);
+                return 'Code sent to '.$phone.'!';
             }
         }
         throw new \yii\web\HttpException('500','User with this number not found!'); 
@@ -354,7 +357,8 @@ class SiteController extends Controller
         if(!$_POST['code']){
             throw new \yii\web\HttpException('500','code cannot be blank.'); 
         }
-        $user = User::find()->where(['phone'=>str_replace(' ', '', $_POST['phone']), 'forgot_sms_code'=>$_POST['code']])->one();
+        $phone = User::cutPhone($_POST['phone']);
+        $user = User::find()->where(['phone'=>$phone, 'forgot_sms_code'=>$_POST['code']])->one();
         if ($user) {
             $digits = 10;
             $user->reset_pass_code = rand(pow(10, $digits-1), pow(10, $digits)-1);
@@ -363,7 +367,7 @@ class SiteController extends Controller
                 return ['pass_code'=> $user->reset_pass_code];
             }
         }
-        throw new \yii\web\HttpException('500','Code for number '.str_replace(' ', '', $_POST['phone']).' is incorrect !'); 
+        throw new \yii\web\HttpException('500','Code for number '.$phone.' is incorrect !'); 
     }
 
     public function actionNewPassCode()
@@ -377,7 +381,8 @@ class SiteController extends Controller
         if(!$_POST['password']){
             throw new \yii\web\HttpException('500','password cannot be blank.'); 
         }
-        $user = User::find()->where(['phone'=>str_replace(' ', '', $_POST['phone']), 'reset_pass_code'=>$_POST['pass_code']])->one();
+        $phone = User::cutPhone($_POST['phone']);
+        $user = User::find()->where(['phone'=>$phone, 'reset_pass_code'=>$_POST['pass_code']])->one();
         if ($user) {
             $user->password_hash = Yii::$app->security->generatePasswordHash($_POST['password']);
             $user->forgot_sms_code = '';
@@ -401,14 +406,15 @@ class SiteController extends Controller
         if(!$_POST['phone']){
             throw new \yii\web\HttpException('500','phone cannot be blank.'); 
         }
-        $user = User::find()->where(['phone'=>str_replace(' ', '', $_POST['phone'])])->one();
+        $phone = User::cutPhone($_POST['phone']);
+        $user = User::find()->where(['phone'=>$phone])->one();
         if ($user) {
             $digits = 4;
             $user->verify_sms_code = rand(pow(10, $digits-1), pow(10, $digits)-1);
             if ($user->save()) {
                 $message = 'Your Pluzo code is: '.$user->verify_sms_code;
-                User::Sms($_POST['phone'], $message);
-                return 'Verify code sent to '.$_POST['phone'].'!';
+                User::Sms($phone, $message);
+                return 'Verify code sent to '.$phone.'!';
             }
         }
         throw new \yii\web\HttpException('500','User with this number not found!'); 
@@ -422,7 +428,8 @@ class SiteController extends Controller
         if(!$_POST['code']){
             throw new \yii\web\HttpException('500','code cannot be blank.'); 
         }
-        $user = User::find()->where(['phone'=>$_POST['phone'], 'verify_sms_code'=>$_POST['code']])->one();
+        $phone = User::cutPhone($_POST['phone']);
+        $user = User::find()->where(['phone'=>$phone, 'verify_sms_code'=>$_POST['code']])->one();
         if ($user) {
             $user->status = User::STATUS_ACTIVE;
             $user->verify_sms_code = '';
@@ -434,7 +441,7 @@ class SiteController extends Controller
                 return $user;
             }
         }
-        throw new \yii\web\HttpException('500','Code for number '.$_POST['phone'].' is incorrect !'); 
+        throw new \yii\web\HttpException('500','Code for number '.$phone.' is incorrect !'); 
     }
 
     //agora request 
@@ -492,7 +499,8 @@ class SiteController extends Controller
         if(!$_POST['phone']){
             throw new \yii\web\HttpException('500','phone cannot be blank.'); 
         }
-        $user = UserMsg::find()->where(['phone'=>str_replace(' ', '', $_POST['phone'])])->one();
+        $phone = User::cutPhone($_POST['phone']);
+        $user = UserMsg::find()->where(['phone'=>$phone])->one();
         if ($user) {
             return $user->phone;
         } else {
@@ -505,14 +513,15 @@ class SiteController extends Controller
         if(!$_POST['phone']){
             throw new \yii\web\HttpException('500','phone cannot be blank.'); 
         }
-        $user = User::find()->where(['phone'=>str_replace(' ', '', $_POST['phone'])])->one();
+        $phone = User::cutPhone($_POST['phone']);
+        $user = User::find()->where(['phone'=>$phone])->one();
         if ($user) {
             $digits = 4;
             $user->login_sms_code = rand(pow(10, $digits-1), pow(10, $digits)-1);
             if ($user->save()) {
                 $message = 'Your Pluzo code is: '.$user->login_sms_code;
-                User::Sms($_POST['phone'], $message);
-                return 'Verify code sent to '.str_replace(' ', '', $_POST['phone']).'!';
+                User::Sms($phone, $message);
+                return 'Verify code sent to '.$phone.'!';
             }
         }
         throw new \yii\web\HttpException('500','User with this number not found!'); 
@@ -526,7 +535,8 @@ class SiteController extends Controller
         if(!$_POST['code']){
             throw new \yii\web\HttpException('500','code cannot be blank.'); 
         }
-        $user = User::find()->where(['phone'=>str_replace(' ', '', $_POST['phone']), 'login_sms_code'=>$_POST['code']])->one();
+        $phone = User::cutPhone($_POST['phone']);
+        $user = User::find()->where(['phone'=>$phone, 'login_sms_code'=>$_POST['code']])->one();
         if ($user) {
             $user->login_sms_code = '';
             $user->status = User::STATUS_ACTIVE;
@@ -538,7 +548,7 @@ class SiteController extends Controller
                 return $user;
             }
         }
-        throw new \yii\web\HttpException('500','Code for number '.str_replace(' ', '', $_POST['phone']).' is incorrect !'); 
+        throw new \yii\web\HttpException('500','Code for number '.$phone.' is incorrect !'); 
     }
 
     public function actionIndex()
@@ -559,7 +569,8 @@ class SiteController extends Controller
     }
 
     public function actionProfile()
-    {  
+    {  //
+   
         return User::find()->where(['id'=>\Yii::$app->user->id])->one();
     }
 
@@ -589,7 +600,24 @@ class SiteController extends Controller
 
     public function actionUpdate()
     {
+    
         $user = User::find()->where(['id'=>\Yii::$app->user->id])->one();
+        if (isset($_POST['hide_location'])) { 
+            if ($_POST['hide_location'] < 0 OR $_POST['hide_location'] > 1) {
+                throw new \yii\web\HttpException('500','hide_location can be 0 or 1');
+            } else {
+                $user->hide_location = $_POST['hide_location']; 
+            }
+        }
+        if (isset($_POST['hide_city'])) { 
+            if ($_POST['hide_city'] < 0 OR $_POST['hide_city'] > 1) {
+                throw new \yii\web\HttpException('500','hide_city can be 0 or 1');
+            } else {
+                $user->hide_city = $_POST['hide_city']; 
+            }
+        }
+
+        
         if (isset($_POST['latitude'])) { $user->latitude = $_POST['latitude']; }
         if (isset($_POST['longitude'])) { $user->longitude = $_POST['longitude']; }
         if (isset($_POST['bio'])) { $user->bio = $_POST['bio']; }
@@ -611,6 +639,7 @@ class SiteController extends Controller
 
             }
         }
+        
         if (isset($_POST['remove_badges']) AND $_POST['remove_badges'] == 1) {
             \Yii::$app
             ->db
@@ -671,14 +700,18 @@ class SiteController extends Controller
                 $user->city = $address['city'];
             }
         }
+        
         ClientSetting::update_setting(Yii::$app->request);
-
+ 
         $user->save();
         $res = User::findOne($user->id);
         $socket = [
             'user'=>Stream::userForApi($user->id),
         ];
+  
         User::socket(0, $socket, 'User_update');
+          
+  
         return $res;
     }   
 
@@ -712,7 +745,7 @@ class SiteController extends Controller
         $model->status = User::STATUS_NOT_ACTIVE;
         $model->first_name = $_POST['first_name'];
         $model->last_name = $_POST['last_name'];
-        $model->phone = str_replace(' ', '', $_POST['phone']);
+        $model->phone = User::cutPhone($_POST['phone']);
         $model->latitude = $_POST['latitude'];
         $model->longitude = $_POST['longitude'];
         if (isset($_POST['push_id'])) {
@@ -763,7 +796,7 @@ class SiteController extends Controller
         return $model;
     }
 
-    public function actionUserReport() {
+    public function actionUserReport() { 
         if(!$_POST['user_id']){
             throw new \yii\web\HttpException('500','user_id cannot be blank.'); 
         }
@@ -779,16 +812,18 @@ class SiteController extends Controller
 
     public function actionSearchUser() {
         $request = Yii::$app->request;
+        return [];
         return User::searchUser($request);
     }
 
     public function actionAddBadge() {
-        $request = Yii::$app->request;
-        return Badge::addfupdBadge($request);
+        $request = Yii::$app->request; 
+         return Badge::addBadge($request);
     }
 
     public function actionGetBadge() {
-        return Badge::getBadge();
+        $id = \Yii::$app->user->id;
+        return Badge::getBadge($id);
     }
 
     public function actionDeteleBadge() {

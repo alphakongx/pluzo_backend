@@ -166,7 +166,7 @@ $keyStorage = Yii::$app->keyStorage;
                         [
                             'label' => Yii::t('backend', 'Message'),
                             'icon' => FAS::icon('stream', ['class' => ['nav-icon']]),
-                            'url' => ['/message/index'],
+                            'url' => ['/message/users'],
                             'active' => Yii::$app->controller->id === 'message',
                             //'visible' => Yii::$app->user->can('administrator'),
                         ],

@@ -59,32 +59,31 @@ class SearchUser extends ActiveRecord
             'name' => 'username',  
             'first_name' => 'first_name',
             'last_name' => 'last_name',  
-            'phone' => 'phone',
-            'status' => 'status',
+            //'phone' => 'phone',
+            //'status' => 'status',
             'gender'=>'gender',
             'avatar'=>'image',
-            'birthday'=>'birthday',
             'age'=>function(){ 
                 return User::getAge($this->birthday);
             }, 
-            'latitude'=>'latitude',
-            'longitude'=>'longitude',
+            
             'address'=>'address',
             'city'=>'city',
             'state'=>'state',
-            'last_activity'=>'last_activity',
             'premium'=>function(){ 
                 return User::checkPremium($this->id);
             },
             'bio'=>'bio',
+            'last_activity'=>'last_activity',
+
             'images'=>'images',
-            'friends'=>function(){ 
-                return User::friendCount($this->id);
-            },
+            
             'badges'=>function(){ 
                 return Badge::getBadge($this->id);
             },
-            'first_login',
+            //'first_login',
+            'hide_location'=>'hide_location',
+            'hide_city'=>'hide_city',
         ];
     }
 
@@ -118,25 +117,25 @@ class SearchUser extends ActiveRecord
             $ar = [
                 'id'=>$value['id'],
                 'username'=>$value['username'],
-                'phone'=>$value['phone'],
+                
                 'image'=>$value['image'],
                 'gender'=>$value['gender'],
-                'birthday'=>$value['birthday'],
+                
                 'age'=>User::getAge($value['birthday']),
-                'status'=>$value['status'],
+                
                 'first_name'=>$value['first_name'],
                 'last_name'=>$value['last_name'],
-                'latitude'=>$value['latitude'],
-                'longitude'=>$value['longitude'],
+                
                 'address'=>$value['address'],
                 'city'=>$value['city'],
                 'state'=>$value['state'],
-                'last_activity'=>$value['last_activity'],
+                'hide_location'=>$value['hide_location'],
+                'hide_city'=>$value['hide_city'],
+               
                 'premium'=>User::checkPremium($value['id']),
                 'images'=>$result_images,
-                'friends'=>User::friendCount($value['id']),
                 'badges'=>Badge::getBadge($value['id']),
-                'first_login'=>$value['first_login'],
+                
             ];
             array_push($users, $ar);
         }
